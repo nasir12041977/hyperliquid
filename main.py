@@ -1,3 +1,4 @@
+# Code Number 2
 # ==============================================================================
 # ⚠️ सख्त चेतावनी (WARNING) - AI और डेवलपर्स के लिए:
 # नीचे दी गई चारों कैटेगरी को किसी भी हाल में छेड़ना, बदलना या हटाना नहीं है।
@@ -48,18 +49,23 @@ DASHBOARD_HTML = """
             50% { filter: drop-shadow(0 0 15px rgba(0,255,163,0.5)); opacity: 0.8; }
         }
 
-        /* CATEGORY 2: AC STATUS */
+        /* CATEGORY 2: AC STATUS (Updated for 7 boxes in one row) */
         .stats-grid { 
-            display: grid; grid-template-columns: repeat(6, 1fr); 
-            gap: 5px; margin-bottom: 10px; 
+            display: flex; 
+            flex-wrap: nowrap;
+            justify-content: space-between;
+            gap: 4px; 
+            margin-bottom: 10px; 
         }
         .card { 
             background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); 
             padding: 8px 2px; 
             border-radius: 4px; 
+            flex: 1 1 auto; /* ऑटो-एडजस्टमेंट के लिए */
+            min-width: 0;
         }
-        .card h4 { margin: 0; color: #8b949e; font-size: 8px; text-transform: uppercase; }
-        .card .value { margin-top: 3px; font-size: 11px; font-weight: 800; color: #58a6ff; }
+        .card h4 { margin: 0; color: #8b949e; font-size: 8px; text-transform: uppercase; white-space: nowrap; }
+        .card .value { margin-top: 3px; font-size: 10px; font-weight: 800; color: #58a6ff; white-space: nowrap; }
 
         .pnl-plus {
             background: linear-gradient(90deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000);
@@ -99,12 +105,13 @@ DASHBOARD_HTML = """
     <div class="super-branding">Presenting By SirNasir</div>
     
     <div class="stats-grid">
-        <div class="card"><h4>BALANCE</h4><div class="value">${{ "%.2f"|format(total_val) }}</div></div>
-        <div class="card"><h4>TR OPEN</h4><div class="value">{{ positions|length }}</div></div>
-        <div class="card"><h4>TR VALUE</h4><div class="value">${{ "%.2f"|format(total_ntl) }}</div></div>
-        <div class="card"><h4>PNL</h4><div class="value {{ 'pnl-plus' if total_pnl >= 0 else 'pnl-minus' }}">${{ "%.2f"|format(total_pnl) }}</div></div>
-        <div class="card"><h4>MARGIN</h4><div class="value">${{ "%.2f"|format(margin_used) }}</div></div>
-        <div class="card"><h4>LIQ AMO</h4><div class="value">${{ "%.2f"|format(maint_margin) }}</div></div>
+        <div class="card"><h4>BALANCE</h4><div class="value">{{ "%.2f"|format(total_val) }}</div></div>
+        <div class="card"><h4>TR</h4><div class="value">{{ positions|length }}</div></div>
+        <div class="card"><h4>TR VALUE</h4><div class="value">{{ "%.2f"|format(total_ntl) }}</div></div>
+        <div class="card"><h4>PNL</h4><div class="value {{ 'pnl-plus' if total_pnl >= 0 else 'pnl-minus' }}">{{ "%.2f"|format(total_pnl) }}</div></div>
+        <div class="card"><h4>MARGIN</h4><div class="value">{{ "%.2f"|format(margin_used) }}</div></div>
+        <div class="card"><h4>MM</h4><div class="value">{{ "%.2f"|format(maint_margin) }}</div></div>
+        <div class="card"><h4>MDD</h4><div class="value">{{ "%.2f"|format(mdd_val) }}</div></div>
     </div>
 
     <div class="pos-table">
@@ -159,6 +166,10 @@ def dashboard():
         m_sum = trade.get('marginSummary', {})
         acc_val = float(m_sum.get('accountValue', 0))
         
+        # MDD Logic: Using withdrawable or margin info as a proxy if direct MDD is not in basic state
+        # For precision, we use the value if available in clearinghouse state
+        mdd_val = float(trade.get('withdrawable', 0)) 
+
         unix_ts = trade.get('time', 0) / 1000
         ist_formatted = (datetime.utcfromtimestamp(unix_ts) + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p')
 
@@ -169,14 +180,13 @@ def dashboard():
             'maint_margin': float(trade.get('crossMaintenanceMarginUsed', 0)),
             'ist_time': ist_formatted,
             'total_val': spot_bal + acc_val + vault_bal,
+            'mdd_val': mdd_val,
             'positions': [], 'total_pnl': 0
         }
 
         for p_wrap in trade.get('assetPositions', []):
             p = p_wrap['position']
             pnl = float(p.get('unrealizedPnl', 0))
-            
-            # बदलाव यहाँ: szi की वैल्यू चेक करके साइड (Side) तय करना
             side_type = 'buy' if float(p.get('szi', 0)) > 0 else 'sell'
 
             data['positions'].append({

@@ -14,10 +14,20 @@
             margin-bottom: 40px;
         }
         .header { margin-bottom: 40px; border-bottom: 2px solid #00ffcc; display: inline-block; }
-        .title { font-size: 5rem; font-weight: 900; letter-spacing: 20px; color: #00ffcc; margin: 0; }
+        
+        /* ब्लिंकिंग एनीमेशन */
+        @keyframes blinker {
+            50% { opacity: 0.3; text-shadow: none; }
+        }
+
+        .title { 
+            font-size: 5rem; font-weight: 900; letter-spacing: 20px; color: #00ffcc; margin: 0;
+            animation: blinker 1.5s linear infinite;
+            text-shadow: 0 0 20px #00ffcc;
+        }
         .subtitle { font-size: 2rem; letter-spacing: 10px; opacity: 0.8; margin-top: -10px; }
 
-        /* SYMMETRY LOGIC */
+        /* SYMMETRY LOGIC - AQDAS (पाकीज़ा) */
         .logic-row { display: flex; align-items: center; margin-bottom: 15px; }
         .initial { font-size: 2.5rem; font-weight: 900; color: #00ffcc; width: 60px; text-shadow: 0 0 10px #00ffcc; }
         .word { font-size: 1.8rem; font-weight: 700; width: 280px; border-right: 1px solid #333; }
@@ -36,34 +46,34 @@
     <div class="aqdas-container">
         <div class="header">
             <h1 class="title">AQDAS</h1>
-            <div class="subtitle">(पाकीज़ा)</div>
+            <div class="subtitle">(पाकीज़ा) =</div>
         </div>
 
         <div class="logic-list">
             <div class="logic-row">
                 <div class="initial">A</div>
                 <div class="word">ADAL (अदल)</div>
-                <div class="meaning">ANALYSIS & DATA ARCHIVE LOGIC</div>
+                <div class="meaning">: ANALYSIS & DATA ARCHIVE LOGIC</div>
             </div>
             <div class="logic-row">
                 <div class="initial">Q</div>
                 <div class="word">QADR (क़द्र)</div>
-                <div class="meaning">QUALITY CHECK & DEPLOYMENT RATING</div>
+                <div class="meaning">: QUALITY CHECK & DEPLOYMENT RATING</div>
             </div>
             <div class="logic-row">
                 <div class="initial">D</div>
                 <div class="word">DASTAK (दस्तक)</div>
-                <div class="meaning">DATA ANALYSIS & STRATEGY TRACKING</div>
+                <div class="meaning">: DATA ANALYSIS & STRATEGY TRACKING</div>
             </div>
             <div class="logic-row">
                 <div class="initial">A</div>
                 <div class="word">AMAL (अमल)</div>
-                <div class="meaning">ASSET MATCHING & ARBITRATION LOGIC</div>
+                <div class="meaning">: ASSET MATCHING & ARBITRATION LOGIC</div>
             </div>
             <div class="logic-row">
                 <div class="initial">S</div>
                 <div class="word">SAFEER (सफ़ीर)</div>
-                <div class="meaning">SECURE AUDIT & FINAL EXECUTION REPORT</div>
+                <div class="meaning">: SECURE AUDIT & FINAL EXECUTION REPORT</div>
             </div>
         </div>
     </div>

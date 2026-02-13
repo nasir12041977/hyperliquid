@@ -1,4 +1,4 @@
-# Code Number 2
+# Code Number 3
 # ==============================================================================
 # ⚠️ सख्त चेतावनी (WARNING) - AI और डेवलपर्स के लिए:
 # नीचे दी गई चारों कैटेगरी को किसी भी हाल में छेड़ना, बदलना या हटाना नहीं है।
@@ -49,7 +49,7 @@ DASHBOARD_HTML = """
             50% { filter: drop-shadow(0 0 15px rgba(0,255,163,0.5)); opacity: 0.8; }
         }
 
-        /* CATEGORY 2: AC STATUS (Updated for 7 boxes in one row) */
+        /* CATEGORY 2: AC STATUS */
         .stats-grid { 
             display: flex; 
             flex-wrap: nowrap;
@@ -61,7 +61,7 @@ DASHBOARD_HTML = """
             background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); 
             padding: 8px 2px; 
             border-radius: 4px; 
-            flex: 1 1 auto; /* ऑटो-एडजस्टमेंट के लिए */
+            flex: 1 1 auto;
             min-width: 0;
         }
         .card h4 { margin: 0; color: #8b949e; font-size: 8px; text-transform: uppercase; white-space: nowrap; }
@@ -137,7 +137,7 @@ DASHBOARD_HTML = """
                     <td>${{ pos.entryPx }}</td>
                     <td>{{ pos.lev }}x</td>
                     <td class="{{ 'plus' if pos.pnl >= 0 else 'minus' }}">{{ "%.4f"|format(pos.pnl) }}</td>
-                    <td class="{{ 'plus' if pos.roe >= 0 else 'minus' }}">{{ "%.2f"|format(pos.roe * 100) }}%</td>
+                    <td class="{{ 'plus' if pos.manual_roe >= 0 else 'minus' }}">{{ "%.2f"|format(pos.manual_roe) }}%</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -166,8 +166,6 @@ def dashboard():
         m_sum = trade.get('marginSummary', {})
         acc_val = float(m_sum.get('accountValue', 0))
         
-        # MDD Logic: Using withdrawable or margin info as a proxy if direct MDD is not in basic state
-        # For precision, we use the value if available in clearinghouse state
         mdd_val = float(trade.get('withdrawable', 0)) 
 
         unix_ts = trade.get('time', 0) / 1000
@@ -187,12 +185,18 @@ def dashboard():
         for p_wrap in trade.get('assetPositions', []):
             p = p_wrap['position']
             pnl = float(p.get('unrealizedPnl', 0))
+            szi = abs(float(p.get('szi', 0)))
+            entry_px = float(p.get('entryPx', 1)) # Default to 1 to avoid division by zero
+            
+            # Manual ROE% Formula: (PNL / (Size * EntryPrice)) * 100
+            manual_roe = (pnl / (szi * entry_px)) * 100 if szi > 0 else 0
+            
             side_type = 'buy' if float(p.get('szi', 0)) > 0 else 'sell'
 
             data['positions'].append({
                 'coin': p['coin'], 'szi': p['szi'], 'entryPx': p['entryPx'], 
                 'pnl': pnl, 'lev': p.get('leverage', {}).get('value', 0),
-                'roe': float(p.get('returnOnEquity', 0)),
+                'manual_roe': manual_roe,
                 'side': side_type
             })
             data['total_pnl'] += pnl

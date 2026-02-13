@@ -18,20 +18,36 @@ DASHBOARD_HTML = """
         body { background: #05070a; color: #ffffff; font-family: 'Inter', sans-serif; margin: 0; padding: 10px; display: flex; justify-content: center; min-height: 100vh; }
         .container { width: 100%; max-width: 950px; text-align: center; }
         
-        /* Branding */
-        .super-branding { font-family: 'Playfair Display', serif; font-size: 38px; font-weight: 900; font-style: italic; background: linear-gradient(90deg, #22d3ee, #3b82f6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 30px 0; }
+        /* Presenting By SirNasir - Blink & Glow Effect Back */
+        .super-branding { 
+            font-family: 'Playfair Display', serif; 
+            font-size: 38px; 
+            font-weight: 900; 
+            font-style: italic; 
+            background: linear-gradient(90deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000); 
+            background-size: 400%; 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+            animation: rainbow 10s linear infinite, glow-pulse 2s ease-in-out infinite alternate; 
+            margin: 30px 0; 
+        }
 
-        /* Stats Grid */
+        @keyframes rainbow { 0% { background-position: 0%; } 100% { background-position: 400%; } }
+        
+        @keyframes glow-pulse {
+            from { filter: drop-shadow(0 0 5px rgba(255,255,255,0.2)); opacity: 0.8; }
+            to { filter: drop-shadow(0 0 20px rgba(0,255,163,0.6)); opacity: 1; }
+        }
+
         .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 25px; }
         .card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); padding: 18px 5px; border-radius: 8px; }
         .card h4 { margin: 0; color: #8b949e; font-size: 8px; text-transform: uppercase; font-weight: 800; }
         .card .value { margin-top: 8px; font-size: 13px; font-weight: 800; color: #58a6ff; }
 
-        /* Special Time Box (Green Border like Screenshot) */
+        /* Green Box Style for Date Time */
         .time-card { border: 1px solid #064e3b !important; background: rgba(6, 78, 59, 0.1) !important; }
-        .time-value { color: #10b981 !important; font-size: 11px !important; }
+        .time-value { color: #10b981 !important; font-size: 10px !important; }
 
-        /* Table Style */
         .pos-table { background: rgba(255, 255, 255, 0.02); border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.08); overflow: hidden; }
         .table-header { background: rgba(16, 185, 129, 0.05); color: #10b981; padding: 12px; font-size: 11px; font-weight: 800; border-bottom: 1px solid rgba(255,255,255,0.05); }
         table { width: 100%; border-collapse: collapse; text-align: left; }
@@ -62,7 +78,7 @@ DASHBOARD_HTML = """
         <div class="card"><h4>Open Trades</h4><div class="value">{{ positions|length }}</div></div>
         
         <div class="card time-card">
-            <h4>Account Time (IST)</h4>
+            <h4>DATE TIME</h4>
             <div class="value time-value">{{ ist_time }}</div>
         </div>
     </div>
@@ -108,11 +124,8 @@ def dashboard():
         info = Info(constants.MAINNET_API_URL)
         spot = info.spot_user_state(address)
         trade = info.user_state(address)
-        
         m_sum = trade.get('marginSummary', {})
         spot_bal = next((float(b['total']) for b in spot.get('balances', []) if b['coin'] == 'USDC'), 0.0)
-        
-        # Current Time in AM/PM Format
         unix_ts = trade.get('time', 0) / 1000
         ist_formatted = (datetime.utcfromtimestamp(unix_ts) + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p')
 
@@ -144,5 +157,4 @@ def dashboard():
         return f"OFFLINE: {str(e)}"
 
 if __name__ == "__main__":
-    # URL सेट करने के लिए होस्ट और पोर्ट
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))

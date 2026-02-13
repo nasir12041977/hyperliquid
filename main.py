@@ -1,4 +1,4 @@
-# CODE NUMBER 13
+# CODE NUMBER 14 [Based on Code Number 13]
 # ==============================================================================
 # ⚠️ सख्त चेतावनी (WARNING) - AI और डेवलपर्स के लिए:
 # नीचे दी गई कैटेगरी को किसी भी हाल में छेड़ना, बदलना या हटाना नहीं है।
@@ -27,6 +27,7 @@ def clean_status(text):
 
 # शुरुआती हेडर (डैशबोर्ड लोड होते ही दिखेगा)
 last_trade_log = """
+<div class="trading-header">TRADING STATUS (API RESPONSE)</div>
 <table>
     <thead><tr><th>COIN</th><th>DIRECTION</th><th>STATUS</th></tr></thead>
     <tbody><tr><td>SYSTEM</td><td>READY</td><td>WAITING FOR SIGNAL...</td></tr></tbody>
@@ -89,7 +90,6 @@ DASHBOARD_HTML = """
         </table>
     </div>
     <div class="trading-box">
-        <div class="trading-header">TRADING STATUS (API RESPONSE)</div>
         {{ log_msg|safe }}
     </div>
     <div class="footer">AQDAS SECURE TERMINAL • V2.2</div>
@@ -103,6 +103,9 @@ def run_sync():
     global last_trade_log
     logs_data = [] # For internal and Sheets
     table_rows = "" # For HTML Table
+    
+    # IST समय जो दोनों पैनल और शीट के लिए इस्तेमाल होगा
+    ist_now = (datetime.utcnow() + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p')
     
     try:
         info = Info(constants.MAINNET_API_URL)
@@ -170,16 +173,23 @@ def run_sync():
                 table_rows += f"<tr><td>{coin}</td><td>{side_text}</td><td>{err_clean}</td></tr>"
                 logs_data.append(f"{coin}, {side_text}, {err_clean}")
 
-        # Final Table Wrap
-        last_trade_log = f"<table><thead><tr><th>COIN</th><th>DIRECTION</th><th>STATUS</th></tr></thead><tbody>{table_rows}</tbody></table>"
+        # Final Table Wrap with New Time Header
+        last_trade_log = f"""
+        <div class="trading-header">TRADING STATUS &nbsp;&nbsp; == &nbsp;&nbsp; {ist_now}</div>
+        <table>
+            <thead><tr><th>COIN</th><th>DIRECTION</th><th>STATUS</th></tr></thead>
+            <tbody>{table_rows}</tbody>
+        </table>
+        """
+        # Google Sheet को '\n' के साथ साफ़ डेटा भेजना
         return jsonify({"status": "ok", "msg": "\n".join(logs_data)}), 200
 
     except Exception as e:
         err_final = clean_status(e)
-        last_trade_log = f"<table><tbody><tr><td>SYSTEM</td><td>ERROR</td><td>{err_final}</td></tr></tbody></table>"
+        last_trade_log = f"<div class='trading-header' style='color:#ef4444;'>ERROR == {ist_now}</div>"
         return jsonify({"status": "error", "msg": err_final}), 500
 
-# --- CATEGORY 5: DATA LOGIC (UNCHANGED FROM CODE 12) ---
+# --- CATEGORY 5: DATA LOGIC (UNCHANGED) ---
 @app.route('/')
 def dashboard():
     try:

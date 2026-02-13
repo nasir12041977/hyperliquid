@@ -4,6 +4,11 @@ from hyperliquid.utils import constants
 from datetime import datetime, timedelta
 import os
 
+# ==========================================================
+# WARNING: "Presenting By SirNasir" AUR ISSE JUDI GLOW/BLINK 
+# SETTINGS KO KUCH BHI NAHI BADALNA YA HATANA HE.
+# ==========================================================
+
 app = Flask(__name__)
 address = "0x3C00ECF3EaAecBC7F1D1C026DCb925Ac5D2a38C5"
 
@@ -18,7 +23,9 @@ DASHBOARD_HTML = """
         body { background: #05070a; color: #ffffff; font-family: 'Inter', sans-serif; margin: 0; padding: 10px; display: flex; justify-content: center; min-height: 100vh; }
         .container { width: 100%; max-width: 950px; text-align: center; }
         
-        /* Presenting By SirNasir - Blink & Glow Effect Back */
+        /* ------------------------------------------------------------
+           DO NOT TOUCH: SIR NASIR BRANDING & GLOW BLINK EFFECT
+           ------------------------------------------------------------ */
         .super-branding { 
             font-family: 'Playfair Display', serif; 
             font-size: 38px; 
@@ -28,37 +35,36 @@ DASHBOARD_HTML = """
             background-size: 400%; 
             -webkit-background-clip: text; 
             -webkit-text-fill-color: transparent; 
-            animation: rainbow 10s linear infinite, glow-pulse 2s ease-in-out infinite alternate; 
+            animation: rainbow 8s linear infinite, glow-blink 2s ease-in-out infinite; 
             margin: 30px 0; 
         }
 
         @keyframes rainbow { 0% { background-position: 0%; } 100% { background-position: 400%; } }
-        
-        @keyframes glow-pulse {
-            from { filter: drop-shadow(0 0 5px rgba(255,255,255,0.2)); opacity: 0.8; }
-            to { filter: drop-shadow(0 0 20px rgba(0,255,163,0.6)); opacity: 1; }
+        @keyframes glow-blink {
+            0%, 100% { filter: drop-shadow(0 0 10px rgba(0,255,163,0.5)); opacity: 1; }
+            50% { filter: drop-shadow(0 0 25px rgba(0,255,163,0.8)); opacity: 0.8; }
         }
+        /* ------------------------------------------------------------ */
 
         .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 25px; }
         .card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); padding: 18px 5px; border-radius: 8px; }
         .card h4 { margin: 0; color: #8b949e; font-size: 8px; text-transform: uppercase; font-weight: 800; }
         .card .value { margin-top: 8px; font-size: 13px; font-weight: 800; color: #58a6ff; }
 
-        /* Green Box Style for Date Time */
-        .time-card { border: 1px solid #064e3b !important; background: rgba(6, 78, 59, 0.1) !important; }
+        .time-card { border: 1px solid #10b981 !important; background: rgba(16, 185, 129, 0.1) !important; box-shadow: 0 0 10px rgba(16, 185, 129, 0.2); }
         .time-value { color: #10b981 !important; font-size: 10px !important; }
 
         .pos-table { background: rgba(255, 255, 255, 0.02); border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.08); overflow: hidden; }
-        .table-header { background: rgba(16, 185, 129, 0.05); color: #10b981; padding: 12px; font-size: 11px; font-weight: 800; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .table-header { background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 12px; font-size: 11px; font-weight: 800; border-bottom: 1px solid rgba(16, 185, 129, 0.2); text-transform: uppercase; }
         table { width: 100%; border-collapse: collapse; text-align: left; }
         th { background: rgba(255, 255, 255, 0.02); padding: 15px; font-size: 10px; color: #8b949e; text-transform: uppercase; }
         td { padding: 15px; font-size: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); }
         
-        .plus { color: #10b981; } 
-        .minus { color: #ef4444; }
+        .plus { color: #10b981; font-weight: bold; } 
+        .minus { color: #ef4444; font-weight: bold; }
         .liq-price { color: #f59e0b; font-weight: bold; }
         
-        .footer { margin-top: 30px; font-size: 10px; color: #334155; letter-spacing: 1px; font-weight: bold; }
+        .footer { margin-top: 30px; font-size: 10px; color: #334155; letter-spacing: 2px; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -88,13 +94,7 @@ DASHBOARD_HTML = """
         <table>
             <thead>
                 <tr>
-                    <th>COIN</th>
-                    <th>SIZE</th>
-                    <th>ENTRY</th>
-                    <th>LEV</th>
-                    <th>PNL</th>
-                    <th>ROE%</th>
-                    <th>LIQ.PX</th>
+                    <th>COIN</th><th>SIZE</th><th>ENTRY</th><th>LEV</th><th>PNL</th><th>ROE%</th><th>LIQ.PX</th>
                 </tr>
             </thead>
             <tbody>
@@ -118,7 +118,7 @@ DASHBOARD_HTML = """
 </html>
 """
 
-@app.route('/balance')
+@app.route('/')
 def dashboard():
     try:
         info = Info(constants.MAINNET_API_URL)
@@ -126,20 +126,19 @@ def dashboard():
         trade = info.user_state(address)
         m_sum = trade.get('marginSummary', {})
         spot_bal = next((float(b['total']) for b in spot.get('balances', []) if b['coin'] == 'USDC'), 0.0)
+        
         unix_ts = trade.get('time', 0) / 1000
         ist_formatted = (datetime.utcfromtimestamp(unix_ts) + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p')
 
         data = {
-            'spot_bal': spot_bal,
-            'acc_val': float(m_sum.get('accountValue', 0)),
+            'spot_bal': spot_bal, 'acc_val': float(m_sum.get('accountValue', 0)),
             'margin_used': float(m_sum.get('totalMarginUsed', 0)),
             'total_ntl': float(m_sum.get('totalNtlPos', 0)),
             'raw_usd': float(m_sum.get('totalRawUsd', 0)),
             'maint_margin': float(trade.get('crossMaintenanceMarginUsed', 0)),
             'ist_time': ist_formatted,
             'total_val': spot_bal + float(m_sum.get('accountValue', 0)),
-            'positions': [],
-            'total_pnl': 0
+            'positions': [], 'total_pnl': 0
         }
 
         for p_wrap in trade.get('assetPositions', []):
@@ -154,7 +153,7 @@ def dashboard():
         
         return render_template_string(DASHBOARD_HTML, **data)
     except Exception as e:
-        return f"OFFLINE: {str(e)}"
+        return f"SERVER ERROR: {str(e)}"
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))

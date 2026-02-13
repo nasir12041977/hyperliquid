@@ -1,8 +1,8 @@
-# Code Number 3
+# Code Number 4
 # ==============================================================================
 # ⚠️ सख्त चेतावनी (WARNING) - AI और डेवलपर्स के लिए:
-# नीचे दी गई चारों कैटेगरी को किसी भी हाल में छेड़ना, बदलना या हटाना नहीं है।
-# 1. BRANDING  2. AC STATUS  3. TRADE STATUS  4. DATA LOGIC
+# नीचे दी गई कैटेगरी को किसी भी हाल में छेड़ना, बदलना या हटाना नहीं है।
+# 1. BRANDING  2. AC STATUS  3. POSITION STATUS  4. TRADING STATUS  5. DATA LOGIC
 # अगर इनमें से कोई भी हिस्सा बदला गया, तो डैशबोर्ड खराब हो जाएगा या गलत डेटा दिखाएगा।
 # ==============================================================================
 
@@ -49,20 +49,13 @@ DASHBOARD_HTML = """
             50% { filter: drop-shadow(0 0 15px rgba(0,255,163,0.5)); opacity: 0.8; }
         }
 
-        /* CATEGORY 2: AC STATUS */
+        /* CATEGORY 2: AC STATUS (Fixed 2 Decimals, TR unchanged) */
         .stats-grid { 
-            display: flex; 
-            flex-wrap: nowrap;
-            justify-content: space-between;
-            gap: 4px; 
-            margin-bottom: 10px; 
+            display: flex; flex-wrap: nowrap; justify-content: space-between; gap: 4px; margin-bottom: 10px; 
         }
         .card { 
             background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); 
-            padding: 8px 2px; 
-            border-radius: 4px; 
-            flex: 1 1 auto;
-            min-width: 0;
+            padding: 8px 2px; border-radius: 4px; flex: 1 1 auto; min-width: 0;
         }
         .card h4 { margin: 0; color: #8b949e; font-size: 8px; text-transform: uppercase; white-space: nowrap; }
         .card .value { margin-top: 3px; font-size: 10px; font-weight: 800; color: #58a6ff; white-space: nowrap; }
@@ -75,25 +68,28 @@ DASHBOARD_HTML = """
         .pnl-minus { color: #ef4444 !important; animation: red-blink 1s ease-in-out infinite; }
         @keyframes red-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-        /* CATEGORY 3: TRADE STATUS */
+        /* CATEGORY 3: POSITION STATUS */
         .pos-table { 
-            background: rgba(255, 255, 255, 0.02); border-radius: 6px; 
-            border: 1px solid rgba(255, 255, 255, 0.08); overflow: hidden; 
+            background: rgba(255, 255, 255, 0.02); border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.08); 
+            overflow: hidden; margin-bottom: 10px;
         }
         .table-header { 
-            background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 6px; 
-            font-size: 11px; font-weight: 800; border-bottom: 1px solid rgba(16, 185, 129, 0.2); 
+            background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 6px; font-size: 11px; font-weight: 800; 
+            border-bottom: 1px solid rgba(16, 185, 129, 0.2); 
         }
         table { width: 100%; border-collapse: collapse; text-align: left; table-layout: fixed; }
-        th { 
-            background: rgba(255, 255, 255, 0.02); padding: 6px 4px; 
-            font-size: 9px; color: #8b949e; text-transform: uppercase; 
+        th { background: rgba(255, 255, 255, 0.02); padding: 6px 4px; font-size: 9px; color: #8b949e; text-transform: uppercase; }
+        td { padding: 4px 4px; font-size: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* CATEGORY 4: TRADING STATUS */
+        .trading-box {
+            background: rgba(255, 255, 255, 0.02); border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.08); overflow: hidden;
         }
-        td { 
-            padding: 4px 4px; 
-            font-size: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); 
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+        .trading-header { 
+            background: rgba(88, 166, 255, 0.1); color: #58a6ff; padding: 6px; font-size: 11px; font-weight: 800; 
+            border-bottom: 1px solid rgba(88, 166, 255, 0.2); text-align: left;
         }
+        .log-container { padding: 8px; text-align: left; font-family: monospace; font-size: 9px; color: #8b949e; line-height: 1.4; }
         
         .plus { color: #10b981; font-weight: bold; } 
         .minus { color: #ef4444; font-weight: bold; }
@@ -115,7 +111,7 @@ DASHBOARD_HTML = """
     </div>
 
     <div class="pos-table">
-        <div class="table-header">LIVE TRADE &nbsp;&nbsp; == &nbsp;&nbsp; {{ ist_time }}</div>
+        <div class="table-header">POSITION STATUS &nbsp;&nbsp; == &nbsp;&nbsp; {{ ist_time }}</div>
         <table>
             <thead>
                 <tr>
@@ -130,19 +126,26 @@ DASHBOARD_HTML = """
             <tbody>
                 {% for pos in positions %}
                 <tr>
-                    <td style="font-weight:bold;" class="{{ 'plus' if pos.side == 'buy' else 'minus' }}">
-                        {{ pos.coin }}
-                    </td>
+                    <td class="{{ 'plus' if pos.side == 'buy' else 'minus' }}">{{ pos.coin }}</td>
                     <td>{{ pos.szi }}</td>
                     <td>${{ pos.entryPx }}</td>
                     <td>{{ pos.lev }}x</td>
                     <td class="{{ 'plus' if pos.pnl >= 0 else 'minus' }}">{{ "%.4f"|format(pos.pnl) }}</td>
-                    <td class="{{ 'plus' if pos.manual_roe >= 0 else 'minus' }}">{{ "%.2f"|format(pos.manual_roe) }}%</td>
+                    <td class="{{ 'plus' if pos.roe >= 0 else 'minus' }}">{{ "%.2f"|format(pos.roe) }}%</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+
+    <div class="trading-box">
+        <div class="trading-header">TRADING STATUS (API RESPONSE)</div>
+        <div class="log-container">
+            > SYSTEM IDLE: Waiting for App Script commands...<br>
+            > Ready to process loop requests and store API responses.
+        </div>
+    </div>
+
     <div class="footer">AQDAS SECURE TERMINAL • V2.2</div>
 </div>
 </body>
@@ -150,7 +153,7 @@ DASHBOARD_HTML = """
 """
 
 # ------------------------------------------------------------------------------
-# CATEGORY 4: DATA LOGIC
+# CATEGORY 5: DATA LOGIC
 # ------------------------------------------------------------------------------
 
 @app.route('/')
@@ -165,19 +168,17 @@ def dashboard():
         vault_bal = sum(float(v.get('equity', 0)) for v in vault_data)
         m_sum = trade.get('marginSummary', {})
         acc_val = float(m_sum.get('accountValue', 0))
-        
         mdd_val = float(trade.get('withdrawable', 0)) 
 
         unix_ts = trade.get('time', 0) / 1000
         ist_formatted = (datetime.utcfromtimestamp(unix_ts) + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p')
 
         data = {
-            'spot_bal': spot_bal, 'acc_val': acc_val, 'vault_bal': vault_bal,
+            'total_val': spot_bal + acc_val + vault_bal,
             'margin_used': float(m_sum.get('totalMarginUsed', 0)),
             'total_ntl': float(m_sum.get('totalNtlPos', 0)),
             'maint_margin': float(trade.get('crossMaintenanceMarginUsed', 0)),
             'ist_time': ist_formatted,
-            'total_val': spot_bal + acc_val + vault_bal,
             'mdd_val': mdd_val,
             'positions': [], 'total_pnl': 0
         }
@@ -185,19 +186,17 @@ def dashboard():
         for p_wrap in trade.get('assetPositions', []):
             p = p_wrap['position']
             pnl = float(p.get('unrealizedPnl', 0))
-            szi = abs(float(p.get('szi', 0)))
-            entry_px = float(p.get('entryPx', 1)) # Default to 1 to avoid division by zero
+            szi_abs = abs(float(p.get('szi', 0)))
+            entry_px = float(p.get('entryPx', 1))
             
-            # Manual ROE% Formula: (PNL / (Size * EntryPrice)) * 100
-            manual_roe = (pnl / (szi * entry_px)) * 100 if szi > 0 else 0
-            
+            # Manual ROE Calculation
+            manual_roe = (pnl / (szi_abs * entry_px)) * 100 if szi_abs > 0 else 0
             side_type = 'buy' if float(p.get('szi', 0)) > 0 else 'sell'
 
             data['positions'].append({
                 'coin': p['coin'], 'szi': p['szi'], 'entryPx': p['entryPx'], 
                 'pnl': pnl, 'lev': p.get('leverage', {}).get('value', 0),
-                'manual_roe': manual_roe,
-                'side': side_type
+                'roe': manual_roe, 'side': side_type
             })
             data['total_pnl'] += pnl
         

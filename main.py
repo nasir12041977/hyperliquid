@@ -21,28 +21,30 @@ DASHBOARD_HTML = """
         .super-branding { font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 900; font-style: italic; background: linear-gradient(90deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000); background-size: 400%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: rainbow 10s linear infinite; margin-bottom: 5px; }
         @keyframes rainbow { 0% { background-position: 0%; } 100% { background-position: 400%; } }
 
-        /* 5-Step AQDAS Animation */
-        .software-header { font-size: 13px; font-weight: 800; margin: 15px 0; letter-spacing: 1px; color: #00ffa3; }
-        .aqdas-blink::after {
-            content: "TRADING SOFTWARE = AQDAS";
-            animation: aqdas-steps 8s infinite linear;
-        }
-        @keyframes aqdas-steps {
-            0%, 15% { content: "TRADING SOFTWARE = AQDAS (A + ADAL)"; color: #ff0000; text-shadow: 0 0 10px #ff0000; }
-            20%, 35% { content: "TRADING SOFTWARE = AQDAS (Q + QADR)"; color: #00ff00; text-shadow: 0 0 10px #00ff00; }
-            40%, 55% { content: "TRADING SOFTWARE = AQDAS (D + DASTAK)"; color: #0000ff; text-shadow: 0 0 10px #0000ff; }
-            60%, 75% { content: "TRADING SOFTWARE = AQDAS (A + AMAL)"; color: #ffff00; text-shadow: 0 0 10px #ffff00; }
-            80%, 100% { content: "TRADING SOFTWARE = AQDAS (S + SAFEER)"; color: #ff00ff; text-shadow: 0 0 10px #ff00ff; }
-        }
+        /* 5-Step AQDAS Logic: पूरा नाम दिखेगा, बस अक्षर चमकेंगे */
+        .software-header { font-size: 14px; font-weight: 800; margin: 15px 0; letter-spacing: 1px; line-height: 1.6; color: rgba(255,255,255,0.2); }
+        .software-header div { display: block; }
+        
+        .step-a, .step-q, .step-d, .step-a2, .step-s { transition: all 0.3s ease; }
+
+        @keyframes blink-a { 0%, 20% { color: #00ffa3; text-shadow: 0 0 15px #00ffa3; transform: scale(1.1); } }
+        @keyframes blink-q { 20%, 40% { color: #00ffa3; text-shadow: 0 0 15px #00ffa3; transform: scale(1.1); } }
+        @keyframes blink-d { 40%, 60% { color: #00ffa3; text-shadow: 0 0 15px #00ffa3; transform: scale(1.1); } }
+        @keyframes blink-a2 { 60%, 80% { color: #00ffa3; text-shadow: 0 0 15px #00ffa3; transform: scale(1.1); } }
+        @keyframes blink-s { 80%, 100% { color: #00ffa3; text-shadow: 0 0 15px #00ffa3; transform: scale(1.1); } }
+
+        .step-a { animation: blink-a 10s infinite; }
+        .step-q { animation: blink-q 10s infinite; }
+        .step-d { animation: blink-d 10s infinite; }
+        .step-a2 { animation: blink-a2 10s infinite; }
+        .step-s { animation: blink-s 10s infinite; }
 
         .user-tag { background: rgba(0, 255, 163, 0.1); color: #00ffa3; padding: 5px 25px; border-radius: 50px; display: inline-block; margin-bottom: 20px; font-weight: bold; border: 1px solid #00ffa344; }
 
-        /* 10 Box Grid (5+5) */
         .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 25px; }
         .card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); padding: 12px 5px; border-radius: 8px; }
         .card h4 { margin: 0; color: #8b949e; font-size: 8px; text-transform: uppercase; }
         .card .value { margin-top: 5px; font-size: 12px; font-weight: 700; color: #58a6ff; }
-        .wide-card { grid-column: span 1; background: rgba(88, 166, 255, 0.05); }
 
         .pos-table { background: rgba(255, 255, 255, 0.02); border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.08); overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; min-width: 600px; text-align: left; }
@@ -55,7 +57,17 @@ DASHBOARD_HTML = """
 <body>
 <div class="container">
     <div class="super-branding">Presenting By SirNasir</div>
-    <div class="software-header"><span class="aqdas-blink"></span></div>
+    
+    <div class="software-header">
+        <div>
+            TRADING SOFTWARE = 
+            <span class="step-a">A</span><span class="step-q">Q</span><span class="step-d">D</span><span class="step-a2">A</span><span class="step-s">S</span>
+        </div>
+        <div>
+            (<span class="step-a">ADAL</span>+<span class="step-q">QADR</span>+<span class="step-d">DASTAK</span>+<span class="step-a2">AMAL</span>+<span class="step-s">SAFEER</span>)
+        </div>
+    </div>
+
     <div class="user-tag">SIR NASIR</div>
     
     <div class="stats-grid">
@@ -91,7 +103,7 @@ DASHBOARD_HTML = """
             </tbody>
         </table>
     </div>
-    <div class="footer">AQDAS SECURE TERMINAL • V2.1</div>
+    <div class="footer">AQDAS SECURE TERMINAL • V2.2</div>
 </div>
 </body>
 </html>
@@ -107,10 +119,7 @@ def dashboard():
         m_sum = trade.get('marginSummary', {})
         spot_bal = next((float(b['total']) for b in spot.get('balances', []) if b['coin'] == 'USDC'), 0.0)
         
-        # Time Conversion (Unix to IST)
         unix_ts = trade.get('time', 0) / 1000
-        ist_dt = datetime.fromtimestamp(unix_ts) + timedelta(hours=0, minutes=0) # Server time conversion check
-        # नोट: Render सर्वर अक्सर UTC पर होते हैं, इसलिए +5:30 जोड़ना सुनिश्चित करता है कि कोलकाता टाइम दिखे
         ist_formatted = (datetime.utcfromtimestamp(unix_ts) + timedelta(hours=5, minutes=30)).strftime('%d %b, %H:%M:%S')
 
         data = {

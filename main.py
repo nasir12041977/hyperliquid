@@ -15,53 +15,51 @@ DASHBOARD_HTML = """
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&family=Playfair+Display:ital,wght@0,900;1,900&display=swap');
-        body { background: #0b0f14; color: #ffffff; font-family: 'Inter', sans-serif; margin: 0; padding: 10px; display: flex; justify-content: center; min-height: 100vh; }
+        body { background: #05070a; color: #ffffff; font-family: 'Inter', sans-serif; margin: 0; padding: 10px; display: flex; justify-content: center; min-height: 100vh; }
         .container { width: 100%; max-width: 950px; text-align: center; }
         
-        .super-branding { font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 900; font-style: italic; background: linear-gradient(90deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000); background-size: 400%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: rainbow 10s linear infinite; margin-bottom: 5px; }
+        .super-branding { font-family: 'Playfair Display', serif; font-size: 36px; font-weight: 900; font-style: italic; background: linear-gradient(90deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000); background-size: 400%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: rainbow 10s linear infinite; margin-bottom: 15px; }
         @keyframes rainbow { 0% { background-position: 0%; } 100% { background-position: 400%; } }
 
-        /* Problem 1 Fix: Glowing Header Logic */
-        .software-header { font-size: 14px; font-weight: 800; margin: 15px 0; letter-spacing: 1px; line-height: 1.6; }
-        .software-header div { 
-            display: block; 
-            color: #00ffa3; 
-            text-shadow: 0 0 10px rgba(0, 255, 163, 0.8);
-            animation: text-glow-pulse 2s ease-in-out infinite alternate;
+        /* JABARDAST BLINKING LOGIC */
+        .software-header { 
+            font-size: 16px; 
+            font-weight: 800; 
+            margin: 20px 0; 
+            padding: 15px;
+            border: 1px solid rgba(0, 255, 163, 0.2);
+            border-radius: 10px;
+            background: rgba(0, 255, 163, 0.02);
+            letter-spacing: 1px;
+            text-transform: uppercase;
         }
-        
-        @keyframes text-glow-pulse {
-            from { opacity: 0.7; text-shadow: 0 0 5px #00ffa3, 0 0 10px #00ffa3; }
-            to { opacity: 1; text-shadow: 0 0 15px #00ffa3, 0 0 25px #00ffa3, 0 0 35px #00ffa3; }
+
+        .neon-text {
+            color: #00ffa3;
+            animation: cyber-blink 1.5s infinite alternate;
+            text-shadow: 0 0 5px #00ffa3, 0 0 10px #00ffa3, 0 0 20px #00ffa3;
         }
 
-        /* Letters Animation */
-        .step-a, .step-q, .step-d, .step-a2, .step-s { transition: all 0.3s ease; }
-        @keyframes blink-a { 0%, 20% { color: #fff; text-shadow: 0 0 20px #fff; transform: scale(1.1); } }
-        @keyframes blink-q { 20%, 40% { color: #fff; text-shadow: 0 0 20px #fff; transform: scale(1.1); } }
-        @keyframes blink-d { 40%, 60% { color: #fff; text-shadow: 0 0 20px #fff; transform: scale(1.1); } }
-        @keyframes blink-a2 { 60%, 80% { color: #fff; text-shadow: 0 0 20px #fff; transform: scale(1.1); } }
-        @keyframes blink-s { 80%, 100% { color: #fff; text-shadow: 0 0 20px #fff; transform: scale(1.1); } }
+        @keyframes cyber-blink {
+            0%, 100% { opacity: 1; text-shadow: 0 0 10px #00ffa3, 0 0 20px #00ffa3, 0 0 40px #00ffa3; transform: scale(1); }
+            50% { opacity: 0.3; text-shadow: 0 0 2px #00ffa3; transform: scale(0.98); }
+            80% { opacity: 1; transform: scale(1.02); }
+        }
 
-        .step-a { animation: blink-a 10s infinite; }
-        .step-q { animation: blink-q 10s infinite; }
-        .step-d { animation: blink-d 10s infinite; }
-        .step-a2 { animation: blink-a2 10s infinite; }
-        .step-s { animation: blink-s 10s infinite; }
+        .user-tag { background: #00ffa3; color: #000; padding: 5px 30px; border-radius: 5px; display: inline-block; margin-bottom: 25px; font-weight: 900; box-shadow: 0 0 20px rgba(0, 255, 163, 0.4); }
 
-        .user-tag { background: rgba(0, 255, 163, 0.1); color: #00ffa3; padding: 5px 25px; border-radius: 50px; display: inline-block; margin-bottom: 20px; font-weight: bold; border: 1px solid #00ffa344; }
+        .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 25px; }
+        .card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); padding: 15px 5px; border-radius: 8px; transition: 0.3s; }
+        .card:hover { border-color: #00ffa3; background: rgba(0, 255, 163, 0.05); }
+        .card h4 { margin: 0; color: #8b949e; font-size: 9px; text-transform: uppercase; }
+        .card .value { margin-top: 8px; font-size: 13px; font-weight: 800; color: #58a6ff; }
 
-        .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 25px; }
-        .card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); padding: 12px 5px; border-radius: 8px; }
-        .card h4 { margin: 0; color: #8b949e; font-size: 8px; text-transform: uppercase; }
-        .card .value { margin-top: 5px; font-size: 12px; font-weight: 700; color: #58a6ff; }
-
-        .pos-table { background: rgba(255, 255, 255, 0.02); border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.08); overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; min-width: 600px; text-align: left; }
-        th { background: rgba(255, 255, 255, 0.05); padding: 12px; font-size: 9px; color: #8b949e; text-transform: uppercase; }
-        td { padding: 12px; font-size: 11px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); }
-        .plus { color: #3fb950; } .minus { color: #f85149; }
-        .footer { margin-top: 30px; font-size: 9px; color: #30363d; font-weight: bold; }
+        .pos-table { background: rgba(255, 255, 255, 0.02); border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.08); overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; text-align: left; }
+        th { background: rgba(255, 255, 255, 0.05); padding: 15px; font-size: 10px; color: #8b949e; }
+        td { padding: 15px; font-size: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); }
+        .plus { color: #00ff88; font-weight: bold; } .minus { color: #ff4444; font-weight: bold; }
+        .footer { margin-top: 30px; font-size: 10px; color: #444; letter-spacing: 2px; }
     </style>
 </head>
 <body>
@@ -69,13 +67,7 @@ DASHBOARD_HTML = """
     <div class="super-branding">Presenting By SirNasir</div>
     
     <div class="software-header">
-        <div>
-            TRADING SOFTWARE = 
-            <span class="step-a">A</span><span class="step-q">Q</span><span class="step-d">D</span><span class="step-a2">A</span><span class="step-s">S</span>
-        </div>
-        <div style="font-size: 10px; opacity: 0.8; margin-top: 5px;">
-            (<span class="step-a">ADAL</span>+<span class="step-q">QADR</span>+<span class="step-d">DASTAK</span>+<span class="step-a2">AMAL</span>+<span class="step-s">SAFEER</span>)
-        </div>
+        <span class="neon-text">TRADING SOFTWARE = AQDAS (ADAL+QADR+DASTAK+AMAL+SAFEER)</span>
     </div>
 
     <div class="user-tag">SIR NASIR</div>
@@ -91,29 +83,29 @@ DASHBOARD_HTML = """
         <div class="card"><h4>Raw USD</h4><div class="value">${{ "%.2f"|format(raw_usd) }}</div></div>
         <div class="card"><h4>Total PNL</h4><div class="value {{ 'plus' if total_pnl >= 0 else 'minus' }}">${{ "%.4f"|format(total_pnl) }}</div></div>
         <div class="card"><h4>Open Trades</h4><div class="value">{{ positions|length }}</div></div>
-        <div class="card"><h4>Account Time (IST)</h4><div class="value" style="font-size:10px; color:#00ffa3;">{{ ist_time }}</div></div>
+        <div class="card"><h4>Account Time (IST)</h4><div class="value" style="font-size:11px; color:#00ffa3; font-weight:bold;">{{ ist_time }}</div></div>
     </div>
 
     <div class="pos-table">
-        <div style="padding: 10px; font-size: 10px; color: #00ffa3; font-weight: bold; text-align:center; border-bottom: 1px solid rgba(255,255,255,0.1);">LIVE TRADE STATUS</div>
+        <div style="padding: 12px; font-size: 11px; color: #00ffa3; font-weight: 800; text-align:center; border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(0,255,163,0.05);">LIVE TERMINAL STATUS</div>
         <table>
             <thead><tr><th>COIN</th><th>SIZE</th><th>ENTRY</th><th>LEV</th><th>PNL</th><th>ROE%</th><th>LIQ.PX</th></tr></thead>
             <tbody>
                 {% for pos in positions %}
                 <tr>
-                    <td style="font-weight:bold;">{{ pos.coin }}</td>
+                    <td style="font-weight:bold; color: #fff;">{{ pos.coin }}</td>
                     <td>{{ pos.szi }}</td>
                     <td>${{ pos.entryPx }}</td>
                     <td>{{ pos.lev }}x</td>
                     <td class="{{ 'plus' if pos.pnl >= 0 else 'minus' }}">{{ "%.4f"|format(pos.pnl) }}</td>
                     <td class="{{ 'plus' if pos.roe >= 0 else 'minus' }}">{{ "%.2f"|format(pos.roe * 100) }}%</td>
-                    <td style="color: #ffa500;">{{ pos.liq if pos.liq else 'CROSS' }}</td>
+                    <td style="color: #ffa500; font-weight:bold;">{{ pos.liq if pos.liq else 'CROSS' }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
-    <div class="footer">AQDAS SECURE TERMINAL • V2.2</div>
+    <div class="footer">AQDAS SECURE TERMINAL • V2.2 • ENCRYPTED</div>
 </div>
 </body>
 </html>
@@ -129,7 +121,7 @@ def dashboard():
         m_sum = trade.get('marginSummary', {})
         spot_bal = next((float(b['total']) for b in spot.get('balances', []) if b['coin'] == 'USDC'), 0.0)
         
-        # Problem 2 Fix: AM/PM Format with %I and %p
+        # Time Logic: AM/PM format
         unix_ts = trade.get('time', 0) / 1000
         ist_formatted = (datetime.utcfromtimestamp(unix_ts) + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p')
 

@@ -1,4 +1,4 @@
-# Code Number 5
+# Code Number 6
 # ==============================================================================
 # ⚠️ सख्त चेतावनी (WARNING) - AI और डेवलपर्स के लिए:
 # नीचे दी गई कैटेगरी को किसी भी हाल में छेड़ना, बदलना या हटाना नहीं है।
@@ -14,6 +14,23 @@ import os
 
 app = Flask(__name__)
 address = "0x3C00ECF3EaAecBC7F1D1C026DCb925Ac5D2a38C5"
+PEAK_FILE = "mdd_peak.txt"
+
+# MDD Peak Balance को फाइल से पढ़ने और अपडेट करने का फंक्शन
+def get_and_update_peak(current_balance):
+    peak = current_balance
+    if os.path.exists(PEAK_FILE):
+        with open(PEAK_FILE, "r") as f:
+            try:
+                peak = float(f.read().strip())
+            except:
+                peak = current_balance
+    
+    if current_balance > peak:
+        peak = current_balance
+        with open(PEAK_FILE, "w") as f:
+            f.write(str(peak))
+    return peak
 
 DASHBOARD_HTML = """
 <!DOCTYPE html>
@@ -60,7 +77,7 @@ DASHBOARD_HTML = """
         .card h4 { margin: 0; color: #8b949e; font-size: 8px; text-transform: uppercase; white-space: nowrap; }
         .card .value { margin-top: 3px; font-size: 10px; font-weight: 800; color: #58a6ff; white-space: nowrap; }
 
-        /* BLINK LOGIC FOR MINUS VALUES */
+        /* BLINK LOGIC */
         .pnl-plus {
             background: linear-gradient(90deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000);
             background-size: 400%; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
@@ -143,8 +160,8 @@ DASHBOARD_HTML = """
     <div class="trading-box">
         <div class="trading-header">TRADING STATUS (API RESPONSE)</div>
         <div class="log-container">
-            > SYSTEM READY: Monitoring account activity...<br>
-            > Awaiting command from App Script to begin loop execution.
+            > SYSTEM READY: Permanent MDD tracking active.<br>
+            > Waiting for App Script to push trade loop logs.
         </div>
     </div>
 
@@ -171,15 +188,17 @@ def dashboard():
         m_sum = trade.get('marginSummary', {})
         acc_val = float(m_sum.get('accountValue', 0))
         
-        # Checking for screenshot value: Trial to catch max drawdown if hidden in sub-fields
-        # Defaulting to withdrawable as a placeholder until logic is defined in next step
-        mdd_val = float(trade.get('withdrawable', 0)) 
+        current_total = spot_bal + acc_val + vault_bal
+        
+        # MDD Logic: High-Water Mark with File Storage
+        peak_balance = get_and_update_peak(current_total)
+        mdd_val = peak_balance - current_total if current_total < peak_balance else 0.0
 
         unix_ts = trade.get('time', 0) / 1000
         ist_formatted = (datetime.utcfromtimestamp(unix_ts) + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p')
 
         data = {
-            'total_val': spot_bal + acc_val + vault_bal,
+            'total_val': current_total,
             'margin_used': float(m_sum.get('totalMarginUsed', 0)),
             'total_ntl': float(m_sum.get('totalNtlPos', 0)),
             'maint_margin': float(trade.get('crossMaintenanceMarginUsed', 0)),

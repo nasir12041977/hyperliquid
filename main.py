@@ -4,16 +4,17 @@ from hyperliquid.utils import constants
 import os
 
 app = Flask(__name__)
-address = os.getenv("HL_ADDRESS")
+address = "0x3C00ECF3EaAecBC7F1D1C026DCb925Ac5D2a38C5"
 
 @app.route('/balance')
-def get_balance():
+def get_all_data():
     try:
         info = Info(constants.MAINNET_API_URL)
-        state = info.spot_user_state(address)
-        return jsonify(state)
+        spot = info.spot_user_state(address)
+        trades = info.user_state(address)
+        return jsonify({"spot_balance": spot, "open_positions": trades})
     except Exception as e:
-        return jsonify({"error": str(e)})
+        return jsonify({"status": "error", "message": str(e)})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

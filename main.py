@@ -1,4 +1,4 @@
-# Code Number 4
+# Code Number 5
 # ==============================================================================
 # ⚠️ सख्त चेतावनी (WARNING) - AI और डेवलपर्स के लिए:
 # नीचे दी गई कैटेगरी को किसी भी हाल में छेड़ना, बदलना या हटाना नहीं है।
@@ -49,7 +49,7 @@ DASHBOARD_HTML = """
             50% { filter: drop-shadow(0 0 15px rgba(0,255,163,0.5)); opacity: 0.8; }
         }
 
-        /* CATEGORY 2: AC STATUS (Fixed 2 Decimals, TR unchanged) */
+        /* CATEGORY 2: AC STATUS */
         .stats-grid { 
             display: flex; flex-wrap: nowrap; justify-content: space-between; gap: 4px; margin-bottom: 10px; 
         }
@@ -60,13 +60,14 @@ DASHBOARD_HTML = """
         .card h4 { margin: 0; color: #8b949e; font-size: 8px; text-transform: uppercase; white-space: nowrap; }
         .card .value { margin-top: 3px; font-size: 10px; font-weight: 800; color: #58a6ff; white-space: nowrap; }
 
+        /* BLINK LOGIC FOR MINUS VALUES */
         .pnl-plus {
             background: linear-gradient(90deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000);
             background-size: 400%; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             animation: rainbow 8s linear infinite; font-weight: 900;
         }
-        .pnl-minus { color: #ef4444 !important; animation: red-blink 1s ease-in-out infinite; }
-        @keyframes red-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+        .pnl-minus { color: #ef4444 !important; animation: red-blink 1s ease-in-out infinite; font-weight: 800; }
+        @keyframes red-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
         /* CATEGORY 3: POSITION STATUS */
         .pos-table { 
@@ -92,7 +93,6 @@ DASHBOARD_HTML = """
         .log-container { padding: 8px; text-align: left; font-family: monospace; font-size: 9px; color: #8b949e; line-height: 1.4; }
         
         .plus { color: #10b981; font-weight: bold; } 
-        .minus { color: #ef4444; font-weight: bold; }
         .footer { margin-top: 10px; font-size: 8px; color: #334155; font-weight: bold; }
     </style>
 </head>
@@ -126,12 +126,14 @@ DASHBOARD_HTML = """
             <tbody>
                 {% for pos in positions %}
                 <tr>
-                    <td class="{{ 'plus' if pos.side == 'buy' else 'minus' }}">{{ pos.coin }}</td>
+                    <td style="font-weight:bold;" class="{{ 'plus' if pos.side == 'buy' else 'pnl-minus' if pos.side == 'sell' else '' }}">
+                        {{ pos.coin }}
+                    </td>
                     <td>{{ pos.szi }}</td>
                     <td>${{ pos.entryPx }}</td>
                     <td>{{ pos.lev }}x</td>
-                    <td class="{{ 'plus' if pos.pnl >= 0 else 'minus' }}">{{ "%.4f"|format(pos.pnl) }}</td>
-                    <td class="{{ 'plus' if pos.roe >= 0 else 'minus' }}">{{ "%.2f"|format(pos.roe) }}%</td>
+                    <td class="{{ 'plus' if pos.pnl >= 0 else 'pnl-minus' }}">{{ "%.4f"|format(pos.pnl) }}</td>
+                    <td class="{{ 'plus' if pos.roe >= 0 else 'pnl-minus' }}">{{ "%.2f"|format(pos.roe) }}%</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -141,8 +143,8 @@ DASHBOARD_HTML = """
     <div class="trading-box">
         <div class="trading-header">TRADING STATUS (API RESPONSE)</div>
         <div class="log-container">
-            > SYSTEM IDLE: Waiting for App Script commands...<br>
-            > Ready to process loop requests and store API responses.
+            > SYSTEM READY: Monitoring account activity...<br>
+            > Awaiting command from App Script to begin loop execution.
         </div>
     </div>
 
@@ -168,6 +170,9 @@ def dashboard():
         vault_bal = sum(float(v.get('equity', 0)) for v in vault_data)
         m_sum = trade.get('marginSummary', {})
         acc_val = float(m_sum.get('accountValue', 0))
+        
+        # Checking for screenshot value: Trial to catch max drawdown if hidden in sub-fields
+        # Defaulting to withdrawable as a placeholder until logic is defined in next step
         mdd_val = float(trade.get('withdrawable', 0)) 
 
         unix_ts = trade.get('time', 0) / 1000
@@ -189,7 +194,6 @@ def dashboard():
             szi_abs = abs(float(p.get('szi', 0)))
             entry_px = float(p.get('entryPx', 1))
             
-            # Manual ROE Calculation
             manual_roe = (pnl / (szi_abs * entry_px)) * 100 if szi_abs > 0 else 0
             side_type = 'buy' if float(p.get('szi', 0)) > 0 else 'sell'
 

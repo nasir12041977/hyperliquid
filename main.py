@@ -27,7 +27,6 @@ DASHBOARD_HTML = """
         
         /* ------------------------------------------------------------
            CATEGORY 1: BRANDING (SirNasir नाम और Rainbow Effect)
-           यह हिस्सा डैशबोर्ड की ऊपरी पहचान और एनीमेशन को कंट्रोल करता है।
            ------------------------------------------------------------ */
         .super-branding { 
             font-family: 'Playfair Display', serif; 
@@ -49,20 +48,39 @@ DASHBOARD_HTML = """
         }
 
         /* ------------------------------------------------------------
-           CATEGORY 2: AC STATUS (ऊपरी 6 बॉक्स का डिजाइन)
-           यहाँ BALANCE, PNL, MARGIN जैसे कार्ड्स का लुक सेट किया गया है।
+           CATEGORY 2: AC STATUS (PNL एनिमेशन सेटिंग्स)
            ------------------------------------------------------------ */
         .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 25px; }
         .card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); padding: 18px 5px; border-radius: 8px; }
         .card h4 { margin: 0; color: #8b949e; font-size: 9px; text-transform: uppercase; font-weight: 800; }
         .card .value { margin-top: 8px; font-size: 14px; font-weight: 800; color: #58a6ff; }
 
+        /* PNL + होने पर SirNasir इफेक्ट */
+        .pnl-plus {
+            background: linear-gradient(90deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000);
+            background-size: 400%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: rainbow 8s linear infinite;
+            font-weight: 900 !important;
+        }
+
+        /* PNL - होने पर Red Blink इफेक्ट */
+        .pnl-minus {
+            color: #ef4444 !important;
+            animation: red-blink 1s ease-in-out infinite;
+        }
+
+        @keyframes red-blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
         /* ------------------------------------------------------------
-           CATEGORY 3: TRADE STATUS (लाइव टेबल का डिजाइन)
-           सिक्कों की लिस्ट और उनके PNL/ROE के रंगों की सेटिंग यहाँ है।
+           CATEGORY 3: TRADE STATUS (लाइव टेबल डिजाइन)
            ------------------------------------------------------------ */
         .pos-table { background: rgba(255, 255, 255, 0.02); border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.08); overflow: hidden; }
-        .table-header { background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 12px; font-size: 13px; font-weight: 800; border-bottom: 1px solid rgba(16, 185, 129, 0.2); text-transform: uppercase; }
+        .table-header { background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 12px; font-size: 13px; font-weight: 800; border-bottom: 1px solid rgba(16, 185, 129, 0.2); text-transform: uppercase; letter-spacing: 1px; }
         table { width: 100%; border-collapse: collapse; text-align: left; }
         th { background: rgba(255, 255, 255, 0.02); padding: 15px; font-size: 10px; color: #8b949e; text-transform: uppercase; }
         td { padding: 15px; font-size: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); }
@@ -80,13 +98,20 @@ DASHBOARD_HTML = """
         <div class="card"><h4>BALANCE</h4><div class="value">${{ "%.2f"|format(total_val) }}</div></div>
         <div class="card"><h4>TR OPEN</h4><div class="value">{{ positions|length }}</div></div>
         <div class="card"><h4>TR VALUE</h4><div class="value">${{ "%.2f"|format(total_ntl) }}</div></div>
-        <div class="card"><h4>PNL</h4><div class="value {{ 'plus' if total_pnl >= 0 else 'minus' }}">${{ "%.4f"|format(total_pnl) }}</div></div>
+        
+        <div class="card">
+            <h4>PNL</h4>
+            <div class="value {{ 'pnl-plus' if total_pnl >= 0 else 'pnl-minus' }}">
+                ${{ "%.4f"|format(total_pnl) }}
+            </div>
+        </div>
+        
         <div class="card"><h4>MARGIN</h4><div class="value">${{ "%.4f"|format(margin_used) }}</div></div>
         <div class="card"><h4>LIQ AMO</h4><div class="value">${{ "%.4f"|format(maint_margin) }}</div></div>
     </div>
 
     <div class="pos-table">
-        <div class="table-header">LIVE TRADE   ==   {{ ist_time }}</div>
+        <div class="table-header">LIVE TRADE &nbsp;&nbsp; == &nbsp;&nbsp; {{ ist_time }}</div>
         <table>
             <thead>
                 <tr>
@@ -114,8 +139,7 @@ DASHBOARD_HTML = """
 """
 
 # ------------------------------------------------------------------------------
-# CATEGORY 4: DATA LOGIC (बैकएंड - असली डेटा प्रोसेसिंग)
-# यह हिस्सा सीधे एक्सचेंज के सर्वर से जुड़कर डेटा फेच और कैलकुलेट करता है।
+# CATEGORY 4: DATA LOGIC
 # ------------------------------------------------------------------------------
 
 @app.route('/')
@@ -126,13 +150,11 @@ def dashboard():
         trade = info.user_state(address)
         vault_data = info.user_vault_equities(address)
 
-        # वॉलेट और ट्रेडिंग डेटा की गणित
         spot_bal = next((float(b['total']) for b in spot.get('balances', []) if b['coin'] == 'USDC'), 0.0)
         vault_bal = sum(float(v.get('equity', 0)) for v in vault_data)
         m_sum = trade.get('marginSummary', {})
         acc_val = float(m_sum.get('accountValue', 0))
         
-        # समय की सेटिंग (IST)
         unix_ts = trade.get('time', 0) / 1000
         ist_formatted = (datetime.utcfromtimestamp(unix_ts) + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p')
 
@@ -149,7 +171,6 @@ def dashboard():
             'total_pnl': 0
         }
 
-        # हर एक पोजीशन का डेटा निकालना
         for p_wrap in trade.get('assetPositions', []):
             p = p_wrap['position']
             pnl = float(p.get('unrealizedPnl', 0))

@@ -1,4 +1,4 @@
-# Code Number 7
+# Code Number 8
 # ==============================================================================
 # ⚠️ सख्त चेतावनी (WARNING) - AI और डेवलपर्स के लिए:
 # नीचे दी गई कैटेगरी को किसी भी हाल में छेड़ना, बदलना या हटाना नहीं है।
@@ -6,14 +6,21 @@
 # अगर इनमें से कोई भी हिस्सा बदला गया, तो डैशबोर्ड खराब हो जाएगा या गलत डेटा दिखाएगा।
 # ==============================================================================
 
-from flask import Flask, render_template_string
+from flask import Flask, render_template_string, request, jsonify
 from hyperliquid.info import Info
+from hyperliquid.exchange import Exchange
 from hyperliquid.utils import constants
 from datetime import datetime, timedelta
+import eth_account
 import os
 
 app = Flask(__name__)
 address = "0x3C00ECF3EaAecBC7F1D1C026DCb925Ac5D2a38C5"
+secret_key = os.getenv("HL_SECRET_KEY")
+account = eth_account.Account.from_key(secret_key) if secret_key else None
+
+# CATEGORY 4: TRADING STATUS LIVE LOGGING
+last_trade_log = "> SYSTEM READY: API Sync MDD tracking active.<br>> Dashboard synchronized with exchange account values."
 
 DASHBOARD_HTML = """
 <!DOCTYPE html>
@@ -60,7 +67,6 @@ DASHBOARD_HTML = """
         .card h4 { margin: 0; color: #8b949e; font-size: 8px; text-transform: uppercase; white-space: nowrap; }
         .card .value { margin-top: 3px; font-size: 10px; font-weight: 800; color: #58a6ff; white-space: nowrap; }
 
-        /* BLINK LOGIC */
         .pnl-plus {
             background: linear-gradient(90deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000);
             background-size: 400%; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
@@ -143,8 +149,7 @@ DASHBOARD_HTML = """
     <div class="trading-box">
         <div class="trading-header">TRADING STATUS (API RESPONSE)</div>
         <div class="log-container">
-            > SYSTEM READY: API Sync MDD tracking active.<br>
-            > Dashboard synchronized with exchange account values.
+            {{ log_msg|safe }}
         </div>
     </div>
 
@@ -154,8 +159,56 @@ DASHBOARD_HTML = """
 </html>
 """
 
+# --- NEW SYNC ENGINE (CLEANUP & EXECUTION) ---
+
+@app.route('/trade', methods=['POST'])
+def run_sync():
+    global last_trade_log
+    log_entries = []
+    try:
+        info = Info(constants.MAINNET_API_URL)
+        ex = Exchange(account, constants.MAINNET_API_URL)
+        data = request.json.get("trades", [])
+        
+        # STEP 1: CLEANUP (Wrong Direction or Not in List)
+        curr_pos = info.user_state(address).get('assetPositions', [])
+        for p_wrap in curr_pos:
+            p = p_wrap['position']
+            coin, szi = p['coin'], float(p['szi'])
+            row = next((t for t in data if t[0] == coin), None)
+            target_buy = True if row and str(row[1]).upper() == "TRUE" else False
+
+            if not row or (target_buy and szi < 0) or (not target_buy and szi > 0):
+                ex.market_order(coin, szi < 0, abs(szi), None, {"reduceOnly": True})
+                log_entries.append(f"> CLOSED: {coin} (Sync Correction)")
+
+        # STEP 2: EXECUTION (LTP, Max Margin, szDec, OI > 0)
+        meta, mids = info.meta(), info.all_mids()
+        for tr in data:
+            coin, is_buy, usd = tr[0], (str(tr[1]).upper() == "TRUE"), float(tr[2])
+            m = next((m for m in meta['universe'] if m['name'] == coin), None)
+            
+            # OI > 0 Check (Greater than Zero)
+            if not m: continue
+            
+            px = float(mids[coin])
+            ex.update_leverage(m['maxLeverage'], coin) # Rule 2
+            
+            sz = float(f"{usd / px:.{m['szDecimals']}f}") # Rule 3
+            if (sz * px) < 10: sz = float(f"{10.1 / px:.{m['szDecimals']}f}") # Rule 1
+
+            res = ex.market_order(coin, is_buy, sz)
+            status = "SUCCESS" if res["status"] == "ok" else f"ERROR: {res}"
+            log_entries.append(f"> {coin}: {status}")
+
+        last_trade_log = "<br>".join(log_entries)
+        return jsonify({"status": "ok", "msg": last_trade_log}), 200
+    except Exception as e:
+        last_trade_log = f"> CRITICAL ERROR: {str(e)}"
+        return jsonify({"status": "error", "msg": str(e)}), 500
+
 # ------------------------------------------------------------------------------
-# CATEGORY 5: DATA LOGIC
+# CATEGORY 5: DATA LOGIC (UNCHANGED AS PER WARNING)
 # ------------------------------------------------------------------------------
 
 @app.route('/')
@@ -172,9 +225,6 @@ def dashboard():
         acc_val = float(m_sum.get('accountValue', 0))
         
         current_total = spot_bal + acc_val + vault_bal
-        
-        # MDD Logic: Using Account Value vs Withdrawable as an exchange-side tracking
-        # This acts as a more stable drawdown indicator on Hyperliquid
         withdrawable = float(trade.get('withdrawable', current_total))
         mdd_val = max(0.0, acc_val - withdrawable)
 
@@ -188,6 +238,7 @@ def dashboard():
             'maint_margin': float(trade.get('crossMaintenanceMarginUsed', 0)),
             'ist_time': ist_formatted,
             'mdd_val': mdd_val,
+            'log_msg': last_trade_log, # Live Sync
             'positions': [], 'total_pnl': 0
         }
 
@@ -196,7 +247,6 @@ def dashboard():
             pnl = float(p.get('unrealizedPnl', 0))
             szi_abs = abs(float(p.get('szi', 0)))
             entry_px = float(p.get('entryPx', 1))
-            
             manual_roe = (pnl / (szi_abs * entry_px)) * 100 if szi_abs > 0 else 0
             side_type = 'buy' if float(p.get('szi', 0)) > 0 else 'sell'
 

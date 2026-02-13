@@ -1,4 +1,4 @@
-# Code Number 6
+# Code Number 7
 # ==============================================================================
 # ⚠️ सख्त चेतावनी (WARNING) - AI और डेवलपर्स के लिए:
 # नीचे दी गई कैटेगरी को किसी भी हाल में छेड़ना, बदलना या हटाना नहीं है।
@@ -14,23 +14,6 @@ import os
 
 app = Flask(__name__)
 address = "0x3C00ECF3EaAecBC7F1D1C026DCb925Ac5D2a38C5"
-PEAK_FILE = "mdd_peak.txt"
-
-# MDD Peak Balance को फाइल से पढ़ने और अपडेट करने का फंक्शन
-def get_and_update_peak(current_balance):
-    peak = current_balance
-    if os.path.exists(PEAK_FILE):
-        with open(PEAK_FILE, "r") as f:
-            try:
-                peak = float(f.read().strip())
-            except:
-                peak = current_balance
-    
-    if current_balance > peak:
-        peak = current_balance
-        with open(PEAK_FILE, "w") as f:
-            f.write(str(peak))
-    return peak
 
 DASHBOARD_HTML = """
 <!DOCTYPE html>
@@ -160,8 +143,8 @@ DASHBOARD_HTML = """
     <div class="trading-box">
         <div class="trading-header">TRADING STATUS (API RESPONSE)</div>
         <div class="log-container">
-            > SYSTEM READY: Permanent MDD tracking active.<br>
-            > Waiting for App Script to push trade loop logs.
+            > SYSTEM READY: API Sync MDD tracking active.<br>
+            > Dashboard synchronized with exchange account values.
         </div>
     </div>
 
@@ -190,9 +173,10 @@ def dashboard():
         
         current_total = spot_bal + acc_val + vault_bal
         
-        # MDD Logic: High-Water Mark with File Storage
-        peak_balance = get_and_update_peak(current_total)
-        mdd_val = peak_balance - current_total if current_total < peak_balance else 0.0
+        # MDD Logic: Using Account Value vs Withdrawable as an exchange-side tracking
+        # This acts as a more stable drawdown indicator on Hyperliquid
+        withdrawable = float(trade.get('withdrawable', current_total))
+        mdd_val = max(0.0, acc_val - withdrawable)
 
         unix_ts = trade.get('time', 0) / 1000
         ist_formatted = (datetime.utcfromtimestamp(unix_ts) + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p')

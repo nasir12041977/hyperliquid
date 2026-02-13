@@ -21,17 +21,27 @@ DASHBOARD_HTML = """
         .super-branding { font-family: 'Playfair Display', serif; font-size: 32px; font-weight: 900; font-style: italic; background: linear-gradient(90deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000); background-size: 400%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: rainbow 10s linear infinite; margin-bottom: 5px; }
         @keyframes rainbow { 0% { background-position: 0%; } 100% { background-position: 400%; } }
 
-        /* 5-Step AQDAS Logic: पूरा नाम दिखेगा, बस अक्षर चमकेंगे */
-        .software-header { font-size: 14px; font-weight: 800; margin: 15px 0; letter-spacing: 1px; line-height: 1.6; color: rgba(255,255,255,0.2); }
-        .software-header div { display: block; }
+        /* Problem 1 Fix: Glowing Header Logic */
+        .software-header { font-size: 14px; font-weight: 800; margin: 15px 0; letter-spacing: 1px; line-height: 1.6; }
+        .software-header div { 
+            display: block; 
+            color: #00ffa3; 
+            text-shadow: 0 0 10px rgba(0, 255, 163, 0.8);
+            animation: text-glow-pulse 2s ease-in-out infinite alternate;
+        }
         
-        .step-a, .step-q, .step-d, .step-a2, .step-s { transition: all 0.3s ease; }
+        @keyframes text-glow-pulse {
+            from { opacity: 0.7; text-shadow: 0 0 5px #00ffa3, 0 0 10px #00ffa3; }
+            to { opacity: 1; text-shadow: 0 0 15px #00ffa3, 0 0 25px #00ffa3, 0 0 35px #00ffa3; }
+        }
 
-        @keyframes blink-a { 0%, 20% { color: #00ffa3; text-shadow: 0 0 15px #00ffa3; transform: scale(1.1); } }
-        @keyframes blink-q { 20%, 40% { color: #00ffa3; text-shadow: 0 0 15px #00ffa3; transform: scale(1.1); } }
-        @keyframes blink-d { 40%, 60% { color: #00ffa3; text-shadow: 0 0 15px #00ffa3; transform: scale(1.1); } }
-        @keyframes blink-a2 { 60%, 80% { color: #00ffa3; text-shadow: 0 0 15px #00ffa3; transform: scale(1.1); } }
-        @keyframes blink-s { 80%, 100% { color: #00ffa3; text-shadow: 0 0 15px #00ffa3; transform: scale(1.1); } }
+        /* Letters Animation */
+        .step-a, .step-q, .step-d, .step-a2, .step-s { transition: all 0.3s ease; }
+        @keyframes blink-a { 0%, 20% { color: #fff; text-shadow: 0 0 20px #fff; transform: scale(1.1); } }
+        @keyframes blink-q { 20%, 40% { color: #fff; text-shadow: 0 0 20px #fff; transform: scale(1.1); } }
+        @keyframes blink-d { 40%, 60% { color: #fff; text-shadow: 0 0 20px #fff; transform: scale(1.1); } }
+        @keyframes blink-a2 { 60%, 80% { color: #fff; text-shadow: 0 0 20px #fff; transform: scale(1.1); } }
+        @keyframes blink-s { 80%, 100% { color: #fff; text-shadow: 0 0 20px #fff; transform: scale(1.1); } }
 
         .step-a { animation: blink-a 10s infinite; }
         .step-q { animation: blink-q 10s infinite; }
@@ -63,7 +73,7 @@ DASHBOARD_HTML = """
             TRADING SOFTWARE = 
             <span class="step-a">A</span><span class="step-q">Q</span><span class="step-d">D</span><span class="step-a2">A</span><span class="step-s">S</span>
         </div>
-        <div>
+        <div style="font-size: 10px; opacity: 0.8; margin-top: 5px;">
             (<span class="step-a">ADAL</span>+<span class="step-q">QADR</span>+<span class="step-d">DASTAK</span>+<span class="step-a2">AMAL</span>+<span class="step-s">SAFEER</span>)
         </div>
     </div>
@@ -119,8 +129,9 @@ def dashboard():
         m_sum = trade.get('marginSummary', {})
         spot_bal = next((float(b['total']) for b in spot.get('balances', []) if b['coin'] == 'USDC'), 0.0)
         
+        # Problem 2 Fix: AM/PM Format with %I and %p
         unix_ts = trade.get('time', 0) / 1000
-        ist_formatted = (datetime.utcfromtimestamp(unix_ts) + timedelta(hours=5, minutes=30)).strftime('%d %b, %H:%M:%S')
+        ist_formatted = (datetime.utcfromtimestamp(unix_ts) + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p')
 
         data = {
             'spot_bal': spot_bal,

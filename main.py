@@ -2,6 +2,7 @@
 <html lang="hi">
 <head>
     <meta charset="UTF-8">
+    <title>AQDAS V2.2</title>
     <style>
         body { background-color: #020202; color: #ffffff; font-family: 'Segoe UI', sans-serif; padding: 40px; margin: 0; }
         
@@ -13,29 +14,32 @@
             box-shadow: 0 0 40px rgba(0, 255, 204, 0.05);
             margin-bottom: 40px;
         }
-        .header { margin-bottom: 40px; border-bottom: 2px solid #00ffcc; display: inline-block; }
-        
-        /* ब्लिंकिंग एनीमेशन */
-        @keyframes blinker {
-            50% { opacity: 0.3; text-shadow: none; }
+
+        /* जबरदस्त ब्लिंकिंग एनीमेशन */
+        @keyframes blink {
+            0% { opacity: 1; text-shadow: 0 0 20px #00ffcc; }
+            50% { opacity: 0.4; text-shadow: none; }
+            100% { opacity: 1; text-shadow: 0 0 20px #00ffcc; }
         }
 
+        .header { margin-bottom: 40px; border-bottom: 2px solid #00ffcc; display: inline-block; padding-bottom: 10px; }
         .title { 
             font-size: 5rem; font-weight: 900; letter-spacing: 20px; color: #00ffcc; margin: 0;
-            animation: blinker 1.5s linear infinite;
-            text-shadow: 0 0 20px #00ffcc;
+            animation: blink 2s ease-in-out infinite;
         }
-        .subtitle { font-size: 2rem; letter-spacing: 10px; opacity: 0.8; margin-top: -10px; }
+        .subtitle { font-size: 2rem; letter-spacing: 10px; opacity: 0.9; color: #fff; margin-top: 5px; }
 
         /* SYMMETRY LOGIC - AQDAS (पाकीज़ा) */
+        .logic-list { margin-top: 20px; }
         .logic-row { display: flex; align-items: center; margin-bottom: 15px; }
-        .initial { font-size: 2.5rem; font-weight: 900; color: #00ffcc; width: 60px; text-shadow: 0 0 10px #00ffcc; }
+        .initial { font-size: 2.5rem; font-weight: 900; color: #00ffcc; width: 60px; }
         .word { font-size: 1.8rem; font-weight: 700; width: 280px; border-right: 1px solid #333; }
-        .meaning { font-size: 1.2rem; padding-left: 25px; color: #888; letter-spacing: 1.5px; }
+        .meaning { font-size: 1.2rem; padding-left: 25px; color: #888; letter-spacing: 1px; font-weight: 400; }
 
         /* TRADING DATA & PARAMETERS */
         .dashboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 50px; }
-        .card { background: #0d0d0d; border: 1px solid #222; padding: 25px; border-radius: 5px; }
+        .card { background: #0d0d0d; border: 1px solid #222; padding: 25px; border-radius: 5px; transition: 0.3s; }
+        .card:hover { border-color: #00ffcc; }
         .card-label { color: #555; font-size: 0.9rem; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 10px; }
         .card-value { font-size: 2.2rem; font-family: monospace; font-weight: bold; color: #fff; }
         .highlight { color: #00ffcc; }

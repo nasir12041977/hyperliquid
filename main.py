@@ -6,7 +6,6 @@ import os
 app = Flask(__name__)
 address = "0x3C00ECF3EaAecBC7F1D1C026DCb925Ac5D2a38C5"
 
-# आपका दिया हुआ Cloudflare वाला डिज़ाइन (HTML/CSS)
 DASHBOARD_HTML = """
 <!DOCTYPE html>
 <html lang="en">
@@ -20,41 +19,39 @@ DASHBOARD_HTML = """
             display: flex; justify-content: center; min-height: 100vh;
             background-image: radial-gradient(circle at 50% 10%, #1a2333, #0b0f14);
         }
-        .container { width: 95%; max-width: 500px; text-align: center; }
+        .container { width: 95%; max-width: 600px; text-align: center; }
         .super-branding {
             font-family: 'Playfair Display', serif;
             font-size: 36px; font-weight: 900; font-style: italic;
             background: linear-gradient(90deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000);
             background-size: 400%; -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             animation: rainbow 10s linear infinite; margin-bottom: 5px;
-            letter-spacing: -0.5px;
         }
         @keyframes rainbow { 0% { background-position: 0%; } 100% { background-position: 400%; } }
         .software-header {
             font-size: 11px; font-weight: bold; margin: 15px 0; letter-spacing: 1px;
-            animation: disco-glow 1.5s infinite linear;
-            line-height: 1.6;
+            animation: disco-glow 1.5s infinite linear; line-height: 1.6;
         }
         @keyframes disco-glow {
             0% { color: #ff0000; text-shadow: 0 0 5px #ff0000; }
             25% { color: #00ff00; text-shadow: 0 0 5px #00ff00; }
             50% { color: #0000ff; text-shadow: 0 0 5px #0000ff; }
-            75% { color: #ffff00; text-shadow: 0 0 5px #ffff00; }
             100% { color: #ff00ff; text-shadow: 0 0 5px #ff00ff; }
         }
         .user-tag {
             background: rgba(0, 255, 163, 0.05); color: #00ffa3; padding: 10px 30px; border-radius: 50px;
             display: inline-block; margin: 10px 0 25px; border: 1px solid rgba(0, 255, 163, 0.2);
-            font-weight: bold; text-transform: uppercase; letter-spacing: 1px;
+            font-weight: bold; text-transform: uppercase;
         }
-        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 25px; }
-        .card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); padding: 18px 10px; border-radius: 20px; }
-        .card h4 { margin: 0; color: #8b949e; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
-        .card .value { margin-top: 10px; font-size: 20px; font-weight: 700; }
-        .pos-table { background: rgba(255, 255, 255, 0.02); border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.08); overflow: hidden; text-align: left; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 25px; }
+        .card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); padding: 15px 5px; border-radius: 15px; }
+        .card h4 { margin: 0; color: #8b949e; font-size: 9px; text-transform: uppercase; letter-spacing: 1px; }
+        .card .value { margin-top: 8px; font-size: 18px; font-weight: 700; }
+        .full-card { grid-column: span 2; background: rgba(88, 166, 255, 0.05); border: 1px solid #58a6ff44; }
+        .pos-table { background: rgba(255, 255, 255, 0.02); border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.08); overflow: hidden; text-align: left; margin-top: 20px; }
         table { width: 100%; border-collapse: collapse; }
-        th { background: rgba(255, 255, 255, 0.05); padding: 12px; font-size: 10px; color: #8b949e; text-align: left; }
-        td { padding: 15px 12px; font-size: 13px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); }
+        th { background: rgba(255, 255, 255, 0.05); padding: 12px; font-size: 10px; color: #8b949e; }
+        td { padding: 12px; font-size: 13px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); }
         .plus { color: #3fb950; } .minus { color: #f85149; }
         .footer { margin-top: 30px; font-size: 10px; color: #30363d; letter-spacing: 3px; font-weight: bold; }
     </style>
@@ -66,13 +63,21 @@ DASHBOARD_HTML = """
     <div class="user-tag">SIR NASIR</div>
 
     <div class="stats-grid">
+        <div class="card full-card">
+            <h4>Combined Total Equity</h4>
+            <div class="value" style="color:#58a6ff">${{ "%.2f"|format(total_equity) }}</div>
+        </div>
         <div class="card">
-            <h4>Total Equity</h4>
-            <div class="value" style="color:#58a6ff">${{ "%.2f"|format(total_combined_equity) }}</div>
+            <h4>Spot Balance (USDC)</h4>
+            <div class="value">${{ "%.2f"|format(spot_bal) }}</div>
+        </div>
+        <div class="card">
+            <h4>Trading Margin</h4>
+            <div class="value">${{ "%.2f"|format(acc_value) }}</div>
         </div>
         <div class="card">
             <h4>Vault Equity</h4>
-            <div class="value">${{ "%.2f"|format(vault_equity) }}</div>
+            <div class="value">$0.00</div>
         </div>
         <div class="card">
             <h4>Live PNL</h4>
@@ -80,13 +85,14 @@ DASHBOARD_HTML = """
                 {{ '+' if total_pnl >= 0 else '' }}${{ "%.4f"|format(total_pnl) }}
             </div>
         </div>
-        <div class="card">
-            <h4>Open Trades</h4>
+        <div class="card full-card">
+            <h4>Open Trades Count</h4>
             <div class="value">{{ positions|length }}</div>
         </div>
     </div>
 
     <div class="pos-table">
+        <div style="padding: 12px; font-size: 10px; color: #8b949e; font-weight: bold; border-bottom: 1px solid rgba(255, 255, 255, 0.08);">LIVE TRADE STATUS</div>
         <table>
             <thead>
                 <tr><th>COIN</th><th>SIZE</th><th>ENTRY</th><th>PNL</th></tr>
@@ -119,35 +125,24 @@ DASHBOARD_HTML = """
 def dashboard():
     try:
         info = Info(constants.MAINNET_API_URL)
-        # डेटा फेच करना
+        spot_state = info.spot_user_state(address)
         trading_state = info.user_state(address)
         
-        # 1. ट्रेडिंग वैल्यू (Account Value)
-        trading_value = float(trading_state.get('marginSummary', {}).get('accountValue', 0))
+        spot_bal = 0
+        for b in spot_state.get('balances', []):
+            if b['coin'] == 'USDC': spot_bal = float(b['total'])
         
-        # 2. लाइव PNL और पोजीशन्स
+        acc_value = float(trading_state.get('marginSummary', {}).get('accountValue', 0))
+        
         positions = []
         total_pnl = 0
-        asset_positions = trading_state.get('assetPositions', [])
-        for pos_wrapper in asset_positions:
+        for pos_wrapper in trading_state.get('assetPositions', []):
             p = pos_wrapper['position']
             pnl = float(p.get('unrealizedPnl', 0))
-            positions.append({
-                'coin': p['coin'],
-                'szi': abs(float(p['szi'])),
-                'entryPx': "{:,.1f}".format(float(p['entryPx'])),
-                'pnl': pnl
-            })
+            positions.append({'coin': p['coin'], 'szi': abs(float(p['szi'])), 'entryPx': "{:,.1f}".format(float(p['entryPx'])), 'pnl': pnl})
             total_pnl += pnl
-
-        # 3. वॉल्ट इक्विटी (अभी के लिए 0, क्योंकि हम सिर्फ main API यूज़ कर रहे हैं)
-        vault_equity = 0.00 
         
-        return render_template_string(DASHBOARD_HTML, 
-                                    total_combined_equity=trading_value + vault_equity,
-                                    vault_equity=vault_equity,
-                                    total_pnl=total_pnl, 
-                                    positions=positions)
+        return render_template_string(DASHBOARD_HTML, total_equity=spot_bal + acc_value, spot_bal=spot_bal, acc_value=acc_value, total_pnl=total_pnl, positions=positions)
     except Exception as e:
         return f"SYSTEM OFFLINE: {str(e)}"
 

@@ -1,3 +1,10 @@
+# ==============================================================================
+# ⚠️ सख्त चेतावनी (WARNING) - AI और डेवलपर्स के लिए:
+# नीचे दी गई चारों कैटेगरी को किसी भी हाल में छेड़ना, बदलना या हटाना नहीं है।
+# 1. BRANDING  2. AC STATUS  3. TRADE STATUS  4. DATA LOGIC
+# अगर इनमें से कोई भी हिस्सा बदला गया, तो डैशबोर्ड खराब हो जाएगा या गलत डेटा दिखाएगा।
+# ==============================================================================
+
 from flask import Flask, render_template_string
 from hyperliquid.info import Info
 from hyperliquid.utils import constants
@@ -19,7 +26,8 @@ DASHBOARD_HTML = """
         .container { width: 100%; max-width: 950px; text-align: center; }
         
         /* ------------------------------------------------------------
-           DO NOT TOUCH: SIR NASIR BRANDING & GLOW BLINK EFFECT
+           CATEGORY 1: BRANDING (SirNasir नाम और Rainbow Effect)
+           यह हिस्सा डैशबोर्ड की ऊपरी पहचान और एनीमेशन को कंट्रोल करता है।
            ------------------------------------------------------------ */
         .super-branding { 
             font-family: 'Playfair Display', serif; 
@@ -39,13 +47,20 @@ DASHBOARD_HTML = """
             0%, 100% { filter: drop-shadow(0 0 10px rgba(0,255,163,0.5)); opacity: 1; }
             50% { filter: drop-shadow(0 0 25px rgba(0,255,163,0.8)); opacity: 0.8; }
         }
-        /* ------------------------------------------------------------ */
 
+        /* ------------------------------------------------------------
+           CATEGORY 2: AC STATUS (ऊपरी 6 बॉक्स का डिजाइन)
+           यहाँ BALANCE, PNL, MARGIN जैसे कार्ड्स का लुक सेट किया गया है।
+           ------------------------------------------------------------ */
         .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 25px; }
         .card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); padding: 18px 5px; border-radius: 8px; }
         .card h4 { margin: 0; color: #8b949e; font-size: 9px; text-transform: uppercase; font-weight: 800; }
         .card .value { margin-top: 8px; font-size: 14px; font-weight: 800; color: #58a6ff; }
 
+        /* ------------------------------------------------------------
+           CATEGORY 3: TRADE STATUS (लाइव टेबल का डिजाइन)
+           सिक्कों की लिस्ट और उनके PNL/ROE के रंगों की सेटिंग यहाँ है।
+           ------------------------------------------------------------ */
         .pos-table { background: rgba(255, 255, 255, 0.02); border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.08); overflow: hidden; }
         .table-header { background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 12px; font-size: 13px; font-weight: 800; border-bottom: 1px solid rgba(16, 185, 129, 0.2); text-transform: uppercase; }
         table { width: 100%; border-collapse: collapse; text-align: left; }
@@ -71,7 +86,7 @@ DASHBOARD_HTML = """
     </div>
 
     <div class="pos-table">
-        <div class="table-header">LIVE TRADE == {{ ist_time }}</div>
+        <div class="table-header">LIVE TRADE   ==   {{ ist_time }}</div>
         <table>
             <thead>
                 <tr>
@@ -98,6 +113,11 @@ DASHBOARD_HTML = """
 </html>
 """
 
+# ------------------------------------------------------------------------------
+# CATEGORY 4: DATA LOGIC (बैकएंड - असली डेटा प्रोसेसिंग)
+# यह हिस्सा सीधे एक्सचेंज के सर्वर से जुड़कर डेटा फेच और कैलकुलेट करता है।
+# ------------------------------------------------------------------------------
+
 @app.route('/')
 def dashboard():
     try:
@@ -106,11 +126,13 @@ def dashboard():
         trade = info.user_state(address)
         vault_data = info.user_vault_equities(address)
 
+        # वॉलेट और ट्रेडिंग डेटा की गणित
         spot_bal = next((float(b['total']) for b in spot.get('balances', []) if b['coin'] == 'USDC'), 0.0)
         vault_bal = sum(float(v.get('equity', 0)) for v in vault_data)
         m_sum = trade.get('marginSummary', {})
         acc_val = float(m_sum.get('accountValue', 0))
         
+        # समय की सेटिंग (IST)
         unix_ts = trade.get('time', 0) / 1000
         ist_formatted = (datetime.utcfromtimestamp(unix_ts) + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p')
 
@@ -127,6 +149,7 @@ def dashboard():
             'total_pnl': 0
         }
 
+        # हर एक पोजीशन का डेटा निकालना
         for p_wrap in trade.get('assetPositions', []):
             p = p_wrap['position']
             pnl = float(p.get('unrealizedPnl', 0))

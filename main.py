@@ -18,35 +18,8 @@ DASHBOARD_HTML = """
         body { background: #05070a; color: #ffffff; font-family: 'Inter', sans-serif; margin: 0; padding: 10px; display: flex; justify-content: center; min-height: 100vh; }
         .container { width: 100%; max-width: 950px; text-align: center; }
         
-        .super-branding { font-family: 'Playfair Display', serif; font-size: 36px; font-weight: 900; font-style: italic; background: linear-gradient(90deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000); background-size: 400%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: rainbow 10s linear infinite; margin-bottom: 15px; }
+        .super-branding { font-family: 'Playfair Display', serif; font-size: 38px; font-weight: 900; font-style: italic; background: linear-gradient(90deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000); background-size: 400%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: rainbow 10s linear infinite; margin: 20px 0 30px 0; }
         @keyframes rainbow { 0% { background-position: 0%; } 100% { background-position: 400%; } }
-
-        /* JABARDAST BLINKING LOGIC */
-        .software-header { 
-            font-size: 16px; 
-            font-weight: 800; 
-            margin: 20px 0; 
-            padding: 15px;
-            border: 1px solid rgba(0, 255, 163, 0.2);
-            border-radius: 10px;
-            background: rgba(0, 255, 163, 0.02);
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-
-        .neon-text {
-            color: #00ffa3;
-            animation: cyber-blink 1.5s infinite alternate;
-            text-shadow: 0 0 5px #00ffa3, 0 0 10px #00ffa3, 0 0 20px #00ffa3;
-        }
-
-        @keyframes cyber-blink {
-            0%, 100% { opacity: 1; text-shadow: 0 0 10px #00ffa3, 0 0 20px #00ffa3, 0 0 40px #00ffa3; transform: scale(1); }
-            50% { opacity: 0.3; text-shadow: 0 0 2px #00ffa3; transform: scale(0.98); }
-            80% { opacity: 1; transform: scale(1.02); }
-        }
-
-        .user-tag { background: #00ffa3; color: #000; padding: 5px 30px; border-radius: 5px; display: inline-block; margin-bottom: 25px; font-weight: 900; box-shadow: 0 0 20px rgba(0, 255, 163, 0.4); }
 
         .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 25px; }
         .card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); padding: 15px 5px; border-radius: 8px; transition: 0.3s; }
@@ -65,12 +38,6 @@ DASHBOARD_HTML = """
 <body>
 <div class="container">
     <div class="super-branding">Presenting By SirNasir</div>
-    
-    <div class="software-header">
-        <span class="neon-text">TRADING SOFTWARE = AQDAS (ADAL+QADR+DASTAK+AMAL+SAFEER)</span>
-    </div>
-
-    <div class="user-tag">SIR NASIR</div>
     
     <div class="stats-grid">
         <div class="card"><h4>Combined Net Worth</h4><div class="value">${{ "%.2f"|format(total_val) }}</div></div>
@@ -121,7 +88,7 @@ def dashboard():
         m_sum = trade.get('marginSummary', {})
         spot_bal = next((float(b['total']) for b in spot.get('balances', []) if b['coin'] == 'USDC'), 0.0)
         
-        # Time Logic: AM/PM format
+        # Time Logic: AM/PM format fix
         unix_ts = trade.get('time', 0) / 1000
         ist_formatted = (datetime.utcfromtimestamp(unix_ts) + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p')
 

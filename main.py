@@ -1,4 +1,4 @@
-# Code Number 12
+# CODE NUMBER 13
 # ==============================================================================
 # ⚠️ सख्त चेतावनी (WARNING) - AI और डेवलपर्स के लिए:
 # नीचे दी गई कैटेगरी को किसी भी हाल में छेड़ना, बदलना या हटाना नहीं है।
@@ -13,13 +13,25 @@ from hyperliquid.utils import constants
 from datetime import datetime, timedelta
 import eth_account
 import os
+import re
 
 app = Flask(__name__)
 address = "0x3C00ECF3EaAecBC7F1D1C026DCb925Ac5D2a38C5"
 secret_key = os.getenv("HL_SECRET_KEY")
 account = eth_account.Account.from_key(secret_key) if secret_key else None
 
-last_trade_log = "> SYSTEM READY: Waiting for Index-Based Signal..."
+# सफाई का फंक्शन (NO SYMBOLS, ALL CAPITAL)
+def clean_status(text):
+    clean_text = re.sub(r'[{}()\[\]"\'/,_]', ' ', str(text))
+    return " ".join(clean_text.split()).upper()
+
+# शुरुआती हेडर (डैशबोर्ड लोड होते ही दिखेगा)
+last_trade_log = """
+<table>
+    <thead><tr><th>COIN</th><th>DIRECTION</th><th>STATUS</th></tr></thead>
+    <tbody><tr><td>SYSTEM</td><td>READY</td><td>WAITING FOR SIGNAL...</td></tr></tbody>
+</table>
+"""
 
 DASHBOARD_HTML = """
 <!DOCTYPE html>
@@ -37,14 +49,12 @@ DASHBOARD_HTML = """
         .card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); padding: 8px 2px; border-radius: 4px; flex: 1 1 auto; min-width: 0; }
         .card h4 { margin: 0; color: #8b949e; font-size: 8px; text-transform: uppercase; white-space: nowrap; }
         .card .value { margin-top: 3px; font-size: 10px; font-weight: 800; color: #58a6ff; white-space: nowrap; }
-        .pos-table { background: rgba(255, 255, 255, 0.02); border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.08); overflow: hidden; margin-bottom: 10px; }
+        .pos-table, .trading-box { background: rgba(255, 255, 255, 0.02); border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.08); overflow: hidden; margin-bottom: 10px; }
         .table-header { background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 6px; font-size: 11px; font-weight: 800; border-bottom: 1px solid rgba(16, 185, 129, 0.2); }
+        .trading-header { background: rgba(88, 166, 255, 0.1); color: #58a6ff; padding: 6px; font-size: 11px; font-weight: 800; border-bottom: 1px solid rgba(88, 166, 255, 0.2); text-align: left; }
         table { width: 100%; border-collapse: collapse; text-align: left; table-layout: fixed; }
         th { background: rgba(255, 255, 255, 0.02); padding: 6px 4px; font-size: 9px; color: #8b949e; text-transform: uppercase; }
         td { padding: 4px 4px; font-size: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .trading-box { background: rgba(255, 255, 255, 0.02); border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.08); overflow: hidden; }
-        .trading-header { background: rgba(88, 166, 255, 0.1); color: #58a6ff; padding: 6px; font-size: 11px; font-weight: 800; border-bottom: 1px solid rgba(88, 166, 255, 0.2); text-align: left; }
-        .log-container { padding: 8px; text-align: left; font-family: monospace; font-size: 9px; color: #8b949e; line-height: 1.4; }
         .plus { color: #10b981; font-weight: bold; }
         .pnl-minus { color: #ef4444 !important; font-weight: 800; }
         .footer { margin-top: 10px; font-size: 8px; color: #334155; font-weight: bold; }
@@ -78,19 +88,22 @@ DASHBOARD_HTML = """
             </tbody>
         </table>
     </div>
-    <div class="trading-box"><div class="trading-header">TRADING STATUS (API RESPONSE)</div><div class="log-container">{{ log_msg|safe }}</div></div>
+    <div class="trading-box">
+        <div class="trading-header">TRADING STATUS (API RESPONSE)</div>
+        {{ log_msg|safe }}
+    </div>
     <div class="footer">AQDAS SECURE TERMINAL • V2.2</div>
 </div>
 </body>
 </html>
 """
 
-# --- MASTER SYNC ENGINE (INDEX-BASED MILAN LOGIC) ---
-
 @app.route('/trade', methods=['POST'])
 def run_sync():
     global last_trade_log
-    logs = []
+    logs_data = [] # For internal and Sheets
+    table_rows = "" # For HTML Table
+    
     try:
         info = Info(constants.MAINNET_API_URL)
         ex = Exchange(account, constants.MAINNET_API_URL)
@@ -100,65 +113,73 @@ def run_sync():
         mids = info.all_mids()
         user_state = info.user_state(address)
         active_pos = {p['position']['coin']: float(p['position']['szi']) for p in user_state.get('assetPositions', [])}
-        
-        # Index to Name Mapping (0 -> BTC, 1 -> ETH)
         universe = [m['name'] for m in meta['universe']]
 
-        # STEP 1: CLEANUP (Based on Target List)
         target_names = []
         for tr in data:
             idx = int(tr[0])
             if idx < len(universe): target_names.append(universe[idx])
 
+        # STEP 1: CLEANUP & CLOSE
         for coin, szi in list(active_pos.items()):
             row = next((t for t in data if universe[int(t[0])] == coin), None)
             target_buy = True if row and str(row[1]).upper() == "TRUE" else False
             
             if coin not in target_names or (target_buy and szi < 0) or (not target_buy and szi > 0):
-                # Market Close (Futures)
                 ex.market_close(coin, reduce_only=True)
-                logs.append(f"> {coin}: MARKET CLOSED (Sync)")
+                side = "SELL" if szi > 0 else "BUY"
+                table_rows += f"<tr><td>{coin}</td><td>{side}</td><td>CLOSE</td></tr>"
+                logs_data.append(f"{coin}, {side}, CLOSE")
                 if coin in active_pos: del active_pos[coin]
 
-        # STEP 2: EXECUTION (Direction Check & Market Order)
+        # STEP 2: EXECUTION & SYNC
         for tr in data:
             coin_idx = int(tr[0])
-            if coin_idx >= len(universe): continue
+            if coin_idx >= len(universe): 
+                table_rows += f"<tr><td>INDEX {coin_idx}</td><td>NONE</td><td>DILIST</td></tr>"
+                continue
             
             coin = universe[coin_idx]
             is_buy = (str(tr[1]).upper() == "TRUE")
             usd_val = float(tr[2])
+            side_text = "BUY" if is_buy else "SELL"
             
-            # Skip if direction matches
             cur_szi = active_pos.get(coin, 0)
             if (is_buy and cur_szi > 0) or (not is_buy and cur_szi < 0):
-                logs.append(f"> {coin}: MATCHED (Skipped)")
+                table_rows += f"<tr><td>{coin}</td><td>{side_text}</td><td>RUNNING</td></tr>"
+                logs_data.append(f"{coin}, {side_text}, RUNNING")
                 continue
             
-            # Get asset info for decimals
-            m = next(m for m in meta['universe'] if m['name'] == coin)
-            px = float(mids[coin])
-            ex.update_leverage(m['maxLeverage'], coin)
-            
-            sz = float(f"{usd_val / px:.{m['szDecimals']}f}")
-            if (sz * px) < 10: sz = float(f"{10.1 / px:.{m['szDecimals']}f}")
+            try:
+                m = next(m for m in meta['universe'] if m['name'] == coin)
+                px = float(mids[coin])
+                ex.update_leverage(m['maxLeverage'], coin)
+                sz = float(f"{usd_val / px:.{m['szDecimals']}f}")
+                if (sz * px) < 10: sz = float(f"{10.1 / px:.{m['szDecimals']}f}")
 
-            # Real Market Order (Slippage included)
-            res = ex.market_open(coin, is_buy, sz, slippage=0.01)
-            
-            if res["status"] == "ok":
-                logs.append(f"> {coin}: MARKET {'BUY' if is_buy else 'SELL'} SUCCESS")
-            else:
-                logs.append(f"> {coin}: FAILED")
+                res = ex.market_open(coin, is_buy, sz, slippage=0.01)
+                if res["status"] == "ok":
+                    table_rows += f"<tr><td>{coin}</td><td>{side_text}</td><td>ENTRY</td></tr>"
+                    logs_data.append(f"{coin}, {side_text}, ENTRY")
+                else:
+                    err = clean_status(res.get("response", "ERROR"))
+                    table_rows += f"<tr><td>{coin}</td><td>{side_text}</td><td>{err}</td></tr>"
+                    logs_data.append(f"{coin}, {side_text}, {err}")
+            except Exception as e:
+                err_clean = clean_status(e)
+                table_rows += f"<tr><td>{coin}</td><td>{side_text}</td><td>{err_clean}</td></tr>"
+                logs_data.append(f"{coin}, {side_text}, {err_clean}")
 
-        if not logs: logs.append("> ALL POSITIONS IN PERFECT SYNC")
-        last_trade_log = "<br>".join(logs)
-        return jsonify({"status": "ok", "msg": last_trade_log}), 200
+        # Final Table Wrap
+        last_trade_log = f"<table><thead><tr><th>COIN</th><th>DIRECTION</th><th>STATUS</th></tr></thead><tbody>{table_rows}</tbody></table>"
+        return jsonify({"status": "ok", "msg": "\n".join(logs_data)}), 200
+
     except Exception as e:
-        last_trade_log = f"> CRITICAL ERROR: {str(e)}"
-        return jsonify({"status": "error", "msg": str(e)}), 500
+        err_final = clean_status(e)
+        last_trade_log = f"<table><tbody><tr><td>SYSTEM</td><td>ERROR</td><td>{err_final}</td></tr></tbody></table>"
+        return jsonify({"status": "error", "msg": err_final}), 500
 
-# --- CATEGORY 5: DATA LOGIC (UNCHANGED) ---
+# --- CATEGORY 5: DATA LOGIC (UNCHANGED FROM CODE 12) ---
 @app.route('/')
 def dashboard():
     try:

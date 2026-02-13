@@ -41,24 +41,19 @@ DASHBOARD_HTML = """
         }
         /* ------------------------------------------------------------ */
 
-        .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 25px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 25px; }
         .card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); padding: 18px 5px; border-radius: 8px; }
-        .card h4 { margin: 0; color: #8b949e; font-size: 8px; text-transform: uppercase; font-weight: 800; }
-        .card .value { margin-top: 8px; font-size: 13px; font-weight: 800; color: #58a6ff; }
-
-        .time-card { border: 1px solid #10b981 !important; background: rgba(16, 185, 129, 0.1) !important; box-shadow: 0 0 10px rgba(16, 185, 129, 0.2); }
-        .time-value { color: #10b981 !important; font-size: 10px !important; }
+        .card h4 { margin: 0; color: #8b949e; font-size: 9px; text-transform: uppercase; font-weight: 800; }
+        .card .value { margin-top: 8px; font-size: 14px; font-weight: 800; color: #58a6ff; }
 
         .pos-table { background: rgba(255, 255, 255, 0.02); border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.08); overflow: hidden; }
-        .table-header { background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 12px; font-size: 11px; font-weight: 800; border-bottom: 1px solid rgba(16, 185, 129, 0.2); text-transform: uppercase; }
+        .table-header { background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 12px; font-size: 13px; font-weight: 800; border-bottom: 1px solid rgba(16, 185, 129, 0.2); text-transform: uppercase; }
         table { width: 100%; border-collapse: collapse; text-align: left; }
         th { background: rgba(255, 255, 255, 0.02); padding: 15px; font-size: 10px; color: #8b949e; text-transform: uppercase; }
         td { padding: 15px; font-size: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); }
         
         .plus { color: #10b981; font-weight: bold; } 
         .minus { color: #ef4444; font-weight: bold; }
-        .liq-price { color: #f59e0b; font-weight: bold; }
-        
         .footer { margin-top: 30px; font-size: 10px; color: #334155; letter-spacing: 2px; font-weight: bold; }
     </style>
 </head>
@@ -67,29 +62,20 @@ DASHBOARD_HTML = """
     <div class="super-branding">Presenting By SirNasir</div>
     
     <div class="stats-grid">
-        <div class="card"><h4>Combined Net Worth</h4><div class="value">${{ "%.2f"|format(total_val) }}</div></div>
-        <div class="card"><h4>Trading Equity (Perp)</h4><div class="value">${{ "%.2f"|format(acc_val) }}</div></div>
-        <div class="card"><h4>Vault Equity</h4><div class="value">${{ "%.2f"|format(vault_bal) }}</div></div>
-        <div class="card"><h4>Spot USDC</h4><div class="value">${{ "%.2f"|format(spot_bal) }}</div></div>
-        <div class="card"><h4>Total PNL</h4><div class="value {{ 'plus' if total_pnl >= 0 else 'minus' }}">${{ "%.4f"|format(total_pnl) }}</div></div>
-
-        <div class="card"><h4>Margin Used</h4><div class="value">${{ "%.4f"|format(margin_used) }}</div></div>
-        <div class="card"><h4>Total Ntl Pos</h4><div class="value">${{ "%.2f"|format(total_ntl) }}</div></div>
-        <div class="card"><h4>Maint. Margin</h4><div class="value">${{ "%.4f"|format(maint_margin) }}</div></div>
-        <div class="card"><h4>Open Trades</h4><div class="value">{{ positions|length }}</div></div>
-        
-        <div class="card time-card">
-            <h4>DATE TIME</h4>
-            <div class="value time-value">{{ ist_time }}</div>
-        </div>
+        <div class="card"><h4>BALANCE</h4><div class="value">${{ "%.2f"|format(total_val) }}</div></div>
+        <div class="card"><h4>TR OPEN</h4><div class="value">{{ positions|length }}</div></div>
+        <div class="card"><h4>TR VALUE</h4><div class="value">${{ "%.2f"|format(total_ntl) }}</div></div>
+        <div class="card"><h4>PNL</h4><div class="value {{ 'plus' if total_pnl >= 0 else 'minus' }}">${{ "%.4f"|format(total_pnl) }}</div></div>
+        <div class="card"><h4>MARGIN</h4><div class="value">${{ "%.4f"|format(margin_used) }}</div></div>
+        <div class="card"><h4>LIQ AMO</h4><div class="value">${{ "%.4f"|format(maint_margin) }}</div></div>
     </div>
 
     <div class="pos-table">
-        <div class="table-header">LIVE TERMINAL STATUS</div>
+        <div class="table-header">LIVE TRADE == {{ ist_time }}</div>
         <table>
             <thead>
                 <tr>
-                    <th>COIN</th><th>SIZE</th><th>ENTRY</th><th>LEV</th><th>PNL</th><th>ROE%</th><th>LIQ.PX</th>
+                    <th>COIN</th><th>SIZE</th><th>ENTRY</th><th>LEV</th><th>PNL</th><th>ROE%</th>
                 </tr>
             </thead>
             <tbody>
@@ -101,7 +87,6 @@ DASHBOARD_HTML = """
                     <td>{{ pos.lev }}x</td>
                     <td class="{{ 'plus' if pos.pnl >= 0 else 'minus' }}">{{ "%.4f"|format(pos.pnl) }}</td>
                     <td class="{{ 'plus' if pos.roe >= 0 else 'minus' }}">{{ "%.2f"|format(pos.roe * 100) }}%</td>
-                    <td class="liq-price">{{ pos.liq if pos.liq else 'CROSS' }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -117,23 +102,15 @@ DASHBOARD_HTML = """
 def dashboard():
     try:
         info = Info(constants.MAINNET_API_URL)
-        
-        # सभी डेटा सोर्स फेच करना
         spot = info.spot_user_state(address)
         trade = info.user_state(address)
         vault_data = info.user_vault_equities(address)
 
-        # 1. स्पॉट बैलेंस (USDC)
         spot_bal = next((float(b['total']) for b in spot.get('balances', []) if b['coin'] == 'USDC'), 0.0)
-        
-        # 2. वॉल्ट बैलेंस कैलकुलेशन
         vault_bal = sum(float(v.get('equity', 0)) for v in vault_data)
-
-        # 3. परपेचुअल (Account Value)
         m_sum = trade.get('marginSummary', {})
         acc_val = float(m_sum.get('accountValue', 0))
         
-        # समय सेटिंग्स
         unix_ts = trade.get('time', 0) / 1000
         ist_formatted = (datetime.utcfromtimestamp(unix_ts) + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p')
 
@@ -143,23 +120,20 @@ def dashboard():
             'vault_bal': vault_bal,
             'margin_used': float(m_sum.get('totalMarginUsed', 0)),
             'total_ntl': float(m_sum.get('totalNtlPos', 0)),
-            'raw_usd': float(m_sum.get('totalRawUsd', 0)),
             'maint_margin': float(trade.get('crossMaintenanceMarginUsed', 0)),
             'ist_time': ist_formatted,
-            # टोटल वैल्यू = स्पॉट + ट्रेडिंग अकाउंट + वॉल्ट
             'total_val': spot_bal + acc_val + vault_bal,
             'positions': [],
             'total_pnl': 0
         }
 
-        # पोजीशन डेटा प्रोसेस करना
         for p_wrap in trade.get('assetPositions', []):
             p = p_wrap['position']
             pnl = float(p.get('unrealizedPnl', 0))
             data['positions'].append({
                 'coin': p['coin'], 'szi': p['szi'], 'entryPx': p['entryPx'], 
                 'pnl': pnl, 'lev': p.get('leverage', {}).get('value', 0),
-                'liq': p.get('liquidationPx'), 'roe': float(p.get('returnOnEquity', 0))
+                'roe': float(p.get('returnOnEquity', 0))
             })
             data['total_pnl'] += pnl
         

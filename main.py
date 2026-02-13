@@ -4,11 +4,6 @@ from hyperliquid.utils import constants
 from datetime import datetime, timedelta
 import os
 
-# ==========================================================
-# WARNING: "Presenting By SirNasir" AUR ISSE JUDI GLOW/BLINK 
-# SETTINGS KO KUCH BHI NAHI BADALNA YA HATANA HE.
-# ==========================================================
-
 app = Flask(__name__)
 address = "0x3C00ECF3EaAecBC7F1D1C026DCb925Ac5D2a38C5"
 
@@ -73,14 +68,14 @@ DASHBOARD_HTML = """
     
     <div class="stats-grid">
         <div class="card"><h4>Combined Net Worth</h4><div class="value">${{ "%.2f"|format(total_val) }}</div></div>
+        <div class="card"><h4>Trading Equity (Perp)</h4><div class="value">${{ "%.2f"|format(acc_val) }}</div></div>
+        <div class="card"><h4>Vault Equity</h4><div class="value">${{ "%.2f"|format(vault_bal) }}</div></div>
         <div class="card"><h4>Spot USDC</h4><div class="value">${{ "%.2f"|format(spot_bal) }}</div></div>
-        <div class="card"><h4>Account Value</h4><div class="value">${{ "%.2f"|format(acc_val) }}</div></div>
-        <div class="card"><h4>Margin Used</h4><div class="value">${{ "%.4f"|format(margin_used) }}</div></div>
-        <div class="card"><h4>Maint. Margin</h4><div class="value">${{ "%.4f"|format(maint_margin) }}</div></div>
-        
-        <div class="card"><h4>Total Ntl Pos</h4><div class="value">${{ "%.2f"|format(total_ntl) }}</div></div>
-        <div class="card"><h4>Raw USD</h4><div class="value">${{ "%.2f"|format(raw_usd) }}</div></div>
         <div class="card"><h4>Total PNL</h4><div class="value {{ 'plus' if total_pnl >= 0 else 'minus' }}">${{ "%.4f"|format(total_pnl) }}</div></div>
+
+        <div class="card"><h4>Margin Used</h4><div class="value">${{ "%.4f"|format(margin_used) }}</div></div>
+        <div class="card"><h4>Total Ntl Pos</h4><div class="value">${{ "%.2f"|format(total_ntl) }}</div></div>
+        <div class="card"><h4>Maint. Margin</h4><div class="value">${{ "%.4f"|format(maint_margin) }}</div></div>
         <div class="card"><h4>Open Trades</h4><div class="value">{{ positions|length }}</div></div>
         
         <div class="card time-card">
@@ -122,25 +117,42 @@ DASHBOARD_HTML = """
 def dashboard():
     try:
         info = Info(constants.MAINNET_API_URL)
+        
+        # सभी डेटा सोर्स फेच करना
         spot = info.spot_user_state(address)
         trade = info.user_state(address)
-        m_sum = trade.get('marginSummary', {})
+        vault_data = info.user_vault_equities(address)
+
+        # 1. स्पॉट बैलेंस (USDC)
         spot_bal = next((float(b['total']) for b in spot.get('balances', []) if b['coin'] == 'USDC'), 0.0)
         
+        # 2. वॉल्ट बैलेंस कैलकुलेशन
+        vault_bal = sum(float(v.get('equity', 0)) for v in vault_data)
+
+        # 3. परपेचुअल (Account Value)
+        m_sum = trade.get('marginSummary', {})
+        acc_val = float(m_sum.get('accountValue', 0))
+        
+        # समय सेटिंग्स
         unix_ts = trade.get('time', 0) / 1000
         ist_formatted = (datetime.utcfromtimestamp(unix_ts) + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p')
 
         data = {
-            'spot_bal': spot_bal, 'acc_val': float(m_sum.get('accountValue', 0)),
+            'spot_bal': spot_bal,
+            'acc_val': acc_val,
+            'vault_bal': vault_bal,
             'margin_used': float(m_sum.get('totalMarginUsed', 0)),
             'total_ntl': float(m_sum.get('totalNtlPos', 0)),
             'raw_usd': float(m_sum.get('totalRawUsd', 0)),
             'maint_margin': float(trade.get('crossMaintenanceMarginUsed', 0)),
             'ist_time': ist_formatted,
-            'total_val': spot_bal + float(m_sum.get('accountValue', 0)),
-            'positions': [], 'total_pnl': 0
+            # टोटल वैल्यू = स्पॉट + ट्रेडिंग अकाउंट + वॉल्ट
+            'total_val': spot_bal + acc_val + vault_bal,
+            'positions': [],
+            'total_pnl': 0
         }
 
+        # पोजीशन डेटा प्रोसेस करना
         for p_wrap in trade.get('assetPositions', []):
             p = p_wrap['position']
             pnl = float(p.get('unrealizedPnl', 0))

@@ -1,8 +1,9 @@
-# CODE NUMBER 28
+# CODE NUMBER 31
 # ==============================================================================
 # ⚠️ सख्त चेतावनी (STRICT WARNING) - AI और डेवलपर्स के लिए:
 # नीचे दी गई कैटेगरी को किसी भी हाल में छेड़ना, बदलना या हटाना नहीं है।
 # 1. BRANDING  2. AC STATUS  3. POSITION STATUS  4. TRADING STATUS  5. DATA LOGIC
+# अगर इनमें से कोई भी हिस्सा बदला गया, तो डैशबोर्ड खराब हो जाएगा या गलत डेटा दिखाएगा।
 # ==============================================================================
 
 from flask import Flask, render_template_string, request, jsonify
@@ -16,7 +17,7 @@ import re
 
 app = Flask(__name__)
 
-# --- [CHECK MARK: USER SETTINGS] ---
+# --- [CHECK MARK: USER SETTINGS - DO NOT TOUCH] ---
 address = "0x3C00ECF3EaAecBC7F1D1C026DCb925Ac5D2a38C5"
 secret_key = os.getenv("HL_SECRET_KEY")
 account = eth_account.Account.from_key(secret_key) if secret_key else None
@@ -25,7 +26,7 @@ def clean_status(text):
     clean_text = re.sub(r'[{}()\[\]"\'/,_]', ' ', str(text))
     return " ".join(clean_text.split()).upper()
 
-# --- [CHECK MARK: TRADING LOG INITIAL] ---
+# --- [CHECK MARK: TRADING LOG INITIAL - CENTERED HEADER] ---
 last_trade_log = """
 <div class="trading-header" style="text-align: center;">TRADING STATUS == WAITING FOR SIGNAL</div>
 <table>
@@ -111,29 +112,31 @@ def run_sync():
     ist_now = (datetime.utcnow() + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p')
     
     try:
+        # --- [CHECK MARK: CONNECTING TO HYPERLIQUID API] ---
         info = Info(constants.MAINNET_API_URL)
         ex = Exchange(account, constants.MAINNET_API_URL)
         data = request.json.get("trades", [])
         meta = info.meta()
         mids = info.all_mids()
         user_state = info.user_state(address)
-        active_pos = {p['position']['coin']: float(p['position']['szi']) for p in user_state.get('assetPositions', [])}
+        active_pos = {p['position']['coin']: float(p['position']['szi']) for p in user_state.get('assetPositions', []) if float(p['position']['szi']) != 0}
         universe = [m['name'] for m in meta['universe']]
         target_names = [universe[int(tr[0])] for tr in data if int(tr[0]) < len(universe)]
 
-        # --- [FIXED: MARKET_CLOSE PARAMETER ERROR] ---
+        # --- [CHECK MARK: FORCE CLOSE WITH REDUCE ONLY RESTORED] ---
         for coin, szi in list(active_pos.items()):
             row = next((t for t in data if universe[int(t[0])] == coin), None)
             target_buy = True if row and str(row[1]).upper() == "TRUE" else False
             if coin not in target_names or (target_buy and szi < 0) or (not target_buy and szi > 0):
-                # REMOVED: reduce_only=True (NOT NEEDED IN SDK FOR MARKET_CLOSE)
-                ex.market_close(coin)
+                # REDUCE ONLY LOGIC: POSITION KO KHATM KARNE KE LIYE
+                ex.market_open(coin, szi < 0, abs(szi), None, 0.01, {"reduceOnly": True})
                 side = "SELL" if szi > 0 else "BUY"
                 status_msg = "CLOSE"
                 table_rows += f"<tr><td>{coin}</td><td>{side}</td><td>{status_msg}</td></tr>"
                 logs_data.append(f"{coin}, {side}, {status_msg}")
                 if coin in active_pos: del active_pos[coin]
 
+        # --- [CHECK MARK: LOOP TO OPEN NEW POSITIONS] ---
         for tr in data:
             coin_idx = int(tr[0])
             if coin_idx >= len(universe): continue
@@ -168,6 +171,7 @@ def run_sync():
                 table_rows += f"<tr><td>{coin}</td><td>{side_text}</td><td>{err_clean}</td></tr>"
                 logs_data.append(f"{coin}, {side_text}, {err_clean}")
 
+        # --- [CHECK MARK: FINAL TRADING LOG UPDATE] ---
         last_trade_log = f"""
         <div class="trading-header">TRADING STATUS &nbsp;&nbsp; == &nbsp;&nbsp; {ist_now}</div>
         <table>
@@ -184,14 +188,13 @@ def run_sync():
 @app.route('/')
 def dashboard():
     try:
+        # --- [CHECK MARK: FETCHING DASHBOARD DATA] ---
         info = Info(constants.MAINNET_API_URL)
-        spot, trade = info.spot_user_state(address), info.user_state(address)
+        trade = info.user_state(address)
         m_sum = trade.get('marginSummary', {})
         acc_val = float(m_sum.get('accountValue', 0))
-        spot_bal = next((float(b['total']) for b in spot.get('balances', []) if b['coin'] == 'USDC'), 0.0)
-        v_bal = sum(float(v.get('equity', 0)) for v in info.user_vault_equities(address))
         data = {
-            'total_val': spot_bal + acc_val + v_bal, 'margin_used': float(m_sum.get('totalMarginUsed', 0)),
+            'total_val': acc_val, 'margin_used': float(m_sum.get('totalMarginUsed', 0)),
             'total_ntl': float(m_sum.get('totalNtlPos', 0)), 'maint_margin': float(trade.get('crossMaintenanceMarginUsed', 0)),
             'ist_time': (datetime.utcnow() + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p'),
             'mdd_val': max(0.0, acc_val - float(trade.get('withdrawable', acc_val))),
@@ -199,15 +202,16 @@ def dashboard():
         }
         for p_wrap in trade.get('assetPositions', []):
             p = p_wrap['position']
-            pnl, szi, entry_px = float(p.get('unrealizedPnl', 0)), float(p.get('szi', 0)), float(p.get('entryPx', 1))
-            data['positions'].append({
-                'coin': p['coin'], 'szi': p['szi'], 'entryPx': p['entryPx'], 'pnl': pnl, 
-                'lev': p.get('leverage', {}).get('value', 0),
-                'roe': (pnl / (abs(szi) * entry_px)) * 100 if szi != 0 else 0, 'side': 'buy' if szi > 0 else 'sell'
-            })
-            data['total_pnl'] += pnl
+            if float(p['szi']) != 0:
+                pnl, szi, entry_px = float(p.get('unrealizedPnl', 0)), float(p.get('szi', 0)), float(p.get('entryPx', 1))
+                data['positions'].append({
+                    'coin': p['coin'], 'szi': p['szi'], 'entryPx': p['entryPx'], 'pnl': pnl, 
+                    'lev': p.get('leverage', {}).get('value', 0),
+                    'roe': (pnl / (abs(szi) * entry_px)) * 100 if szi != 0 else 0, 'side': 'buy' if szi > 0 else 'sell'
+                })
+                data['total_pnl'] += pnl
         return render_template_string(DASHBOARD_HTML, **data)
     except Exception as e: return f"SERVER ERROR: {str(e)}"
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
+    app.run(host='0.0.0.0', port=5000)

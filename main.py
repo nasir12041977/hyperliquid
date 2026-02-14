@@ -147,7 +147,7 @@ def run_sync():
                 ex.market_close(coin, reduce_only=True)
                 side = "SELL" if szi > 0 else "BUY"
                 # STATUS DESCRIPTION RESTORED TO ORIGINAL
-                status_msg = "POSITION CLOSED SUCCESSFULLY"
+                status_msg = "CLOSE"
                 table_rows += f"<tr><td>{coin}</td><td>{side}</td><td>{status_msg}</td></tr>"
                 logs_data.append(f"{coin}, {side}, {status_msg}")
                 if coin in active_pos: del active_pos[coin]
@@ -161,7 +161,7 @@ def run_sync():
             cur_szi = active_pos.get(coin, 0)
             
             if (is_buy and cur_szi > 0) or (not is_buy and cur_szi < 0):
-                status_msg = "POSITION ALREADY RUNNING"
+                status_msg = "RUNNING"
                 table_rows += f"<tr><td>{coin}</td><td>{side_text}</td><td>{status_msg}</td></tr>"
                 logs_data.append(f"{coin}, {side_text}, {status_msg}")
                 continue
@@ -175,7 +175,7 @@ def run_sync():
                 res = ex.market_open(coin, is_buy, sz, slippage=0.01)
                 
                 if res["status"] == "ok":
-                    status_msg = "NEW ENTRY EXECUTED"
+                    status_msg = "ENTRY"
                     table_rows += f"<tr><td>{coin}</td><td>{side_text}</td><td>{status_msg}</td></tr>"
                     logs_data.append(f"{coin}, {side_text}, {status_msg}")
                 else:

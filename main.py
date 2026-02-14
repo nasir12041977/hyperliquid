@@ -1,4 +1,4 @@
-# CODE EDIT NUMBER : 01 ( STATUS : OK )
+# CODE EDIT NUMBER : 01 ( PROBLAM : OK  )
 # ============================================================================================================
 # 1. ⚠️ सख्त चेतावनी (STRICT WARNING): इन सभी निर्देशों का हर हाल में पालन करना अनिवार्य है।
 # 2. कोड में किसी भी तरह का बदलाव करने से पहले, आपको लिखित में समस्या (Problem) और समाधान (Solution) दोनों बताने होंगे।
@@ -214,17 +214,19 @@ def run_sync():
 def dashboard():
     try:
         info = Info(constants.MAINNET_API_URL)
-        # BALANCE LOGIC FROM CODE 6
-        spot = info.spot_user_state(address)
+        # --- DATA LOGIC START ---
         trade = info.user_state(address)
         vault_data = info.user_vault_equities(address)
 
-        spot_bal = next((float(b['total']) for b in spot.get('balances', []) if b['coin'] == 'USDC'), 0.0)
+        # FIXED BALANCE LOGIC: accountValue already includes spot/withdrawable margin.
+        # Adding spot_bal again causes double counting.
         vault_bal = sum(float(v.get('equity', 0)) for v in vault_data)
         m_sum = trade.get('marginSummary', {})
         acc_val = float(m_sum.get('accountValue', 0))
         
-        current_total = spot_bal + acc_val + vault_bal
+        # total_val = accountValue + vault_equity
+        current_total = acc_val + vault_bal
+        # --- DATA LOGIC END ---
         
         # MDD Peak tracking logic
         peak_balance = get_and_update_peak(current_total)

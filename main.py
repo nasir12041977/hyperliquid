@@ -1,4 +1,4 @@
-# CODE EDIT NUMBER : 04 ( PROBLAM :  )
+# CODE EDIT NUMBER : 05 ( PROBLEM : BALANCE PURA NAHI AA RAHA KUM - FIXED )
 # ============================================================================================================
 # 1. ⚠️ सख्त चेतावनी (STRICT WARNING): इन सभी निर्देशों का हर हाल में पालन करना अनिवार्य है।
 # 2. कोड में किसी भी तरह का बदलाव करने से पहले, आपको लिखित में समस्या (Problem) और समाधान (Solution) दोनों बताने होंगे।
@@ -156,7 +156,7 @@ def run_sync():
                 table_rows += f"<tr><td>{coin}</td><td>{side_text}</td><td>{status_msg}</td></tr>"
                 logs_data.append(f"{coin}, {side_text}, {status_msg}")
                 continue
-                
+            
             try:
                 m = next(m for m in meta['universe'] if m['name'] == coin)
                 px = float(mids[coin])
@@ -204,13 +204,21 @@ def dashboard():
         
         m_sum = perp_state.get('marginSummary', {})
         
-        # --- DATA LOGIC: FIXED BALANCE CALCULATION ---
-        # Withdrawable balance + Total Margin Used + Unrealized PnL (to get accurate Net Value)
-        withdrawable = float(perp_state.get('withdrawable', 0))
-        margin_used = float(m_sum.get('totalMarginUsed', 0))
+        # --- DATA LOGIC: FINAL CORRECT BALANCE CALCULATION ---
+        # 1. accountValue = Margin Cash + Unrealized PnL (API provide correct net worth for Perps)
+        p_val = float(m_sum.get('accountValue', 0))
+        
+        # 2. Spot Value (Current value of all spot holdings)
+        s_val = sum(float(s.get('totalValue', 0)) for s in spot_state.get('balances', []))
+        
+        # 3. Vault Value (Equity in all subscribed vaults)
+        v_val = sum(float(v.get('equity', 0)) for v in vault_states)
+        
+        # FINAL TOTAL BALANCE (Sum of all parameters)
+        acc_val = p_val + s_val + v_val
+
         total_pnl = 0
         positions_list = []
-
         for p_wrap in perp_state.get('assetPositions', []):
             p = p_wrap['position']
             if float(p['szi']) != 0:
@@ -222,23 +230,13 @@ def dashboard():
                 })
                 total_pnl += pnl
 
-        # Correct Perpetual Balance
-        p_val = withdrawable + margin_used
-        
-        # Spot & Vaults
-        s_val = sum(float(s.get('totalValue', 0)) for s in spot_state.get('balances', []))
-        v_val = sum(float(v.get('equity', 0)) for v in vault_states)
-        
-        # FINAL TOTAL BALANCE
-        acc_val = p_val + s_val + v_val
-
         data = {
             'total_val': acc_val, 
-            'margin_used': margin_used,
+            'margin_used': float(m_sum.get('totalMarginUsed', 0)),
             'total_ntl': float(m_sum.get('totalNtlPos', 0)), 
             'maint_margin': float(perp_state.get('crossMaintenanceMarginUsed', 0)),
             'ist_time': (datetime.utcnow() + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p'),
-            'mdd_val': max(0.0, acc_val - withdrawable),
+            'mdd_val': max(0.0, acc_val - float(perp_state.get('withdrawable', 0))),
             'log_msg': last_trade_log, 
             'positions': positions_list, 
             'total_pnl': total_pnl

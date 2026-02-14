@@ -1,9 +1,9 @@
-# CODE NUMBER 31 (UPDATED)
-# ==============================================================================
+# CODE EDIT NUMBER : 01
+# ==========================================================================================
 # ⚠️ सख्त चेतावनी (STRICT WARNING): 
-# BRANDING, AC STATUS, POSITION STATUS, TRADING STATUS, DATA LOGIC सुरक्षित हैं।
-# क्लोजिंग लॉजिक को API डॉक्यूमेंटेशन के अनुसार फिक्स कर दिया गया है।
-# ==============================================================================
+# 1. BRANDING, 2. AC STATUS, 3. POSITION STATUS, 4. TRADING STATUS, 5. DATA LOGIC सुरक्षित हैं।
+# अगर इनमें से कोई भी हिस्सा बदला गया, तो डैशबोर्ड खराब हो जाएगा या गलत डेटा दिखाएगा।
+# ==========================================================================================
 
 from flask import Flask, render_template_string, request, jsonify
 from hyperliquid.info import Info
@@ -47,6 +47,8 @@ DASHBOARD_HTML = """
         .super-branding { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 900; font-style: italic; background: linear-gradient(90deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000); background-size: 400%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: rainbow 8s linear infinite, glow-blink 2s ease-in-out infinite; margin: 10px 0; }
         .pnl-glow-rainbow { background: linear-gradient(90deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000); background-size: 400%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: rainbow 8s linear infinite; font-weight: 800; }
         .blink-red { color: #ef4444 !important; animation: blinker 1s linear infinite; font-weight: 800; }
+        .text-red { color: #ef4444 !important; font-weight: 800; }
+        .text-green { color: #10b981 !important; font-weight: 800; }
         @keyframes rainbow { 0% { background-position: 0%; } 100% { background-position: 400%; } }
         @keyframes blinker { 50% { opacity: 0; } }
         .stats-grid { display: flex; flex-wrap: nowrap; justify-content: space-between; gap: 4px; margin-bottom: 10px; }
@@ -87,7 +89,7 @@ DASHBOARD_HTML = """
             <tbody>
                 {% for pos in positions %}
                 <tr>
-                    <td style="font-weight:bold;" class="{{ 'plus' if pos.side == 'buy' else 'blink-red' }}">{{ pos.coin }}</td>
+                    <td style="font-weight:bold;" class="{{ 'text-green' if pos.side == 'buy' else 'text-red' }}">{{ pos.coin }}</td>
                     <td>{{ pos.szi }}</td><td>${{ pos.entryPx }}</td><td>{{ pos.lev }}x</td>
                     <td class="{% if pos.pnl > 0 %}plus{% elif pos.pnl < 0 %}blink-red{% endif %}">{{ "%.4f"|format(pos.pnl) }}</td>
                     <td class="{% if pos.roe > 0 %}plus{% elif pos.roe < 0 %}blink-red{% endif %}">{{ "%.2f"|format(pos.roe) }}%</td>
@@ -117,20 +119,16 @@ def run_sync():
         mids = info.all_mids()
         user_state = info.user_state(address)
         
-        # 1. Current Active Positions
         active_pos = {p['position']['coin']: float(p['position']['szi']) for p in user_state.get('assetPositions', []) if float(p['position']['szi']) != 0}
         universe = [m['name'] for m in meta['universe']]
         target_names = [universe[int(tr[0])] for tr in data if int(tr[0]) < len(universe)]
 
-        # --- [FIXED CLOSE LOGIC] ---
         for coin, szi in list(active_pos.items()):
             row = next((t for t in data if universe[int(t[0])] == coin), None)
             target_buy = True if row and str(row[1]).upper() == "TRUE" else False
             
-            # Position Close Condition: Signal missing OR Direction changed
             if coin not in target_names or (target_buy and szi < 0) or (not target_buy and szi > 0):
                 is_buy_to_close = szi < 0 
-                # API Call for closing (Reduce Only)
                 ex.market_open(coin, is_buy_to_close, abs(szi), slippage=0.05)
                 
                 side = "SELL" if szi > 0 else "BUY"
@@ -139,7 +137,6 @@ def run_sync():
                 logs_data.append(f"{coin}, {side}, {status_msg}")
                 if coin in active_pos: del active_pos[coin]
 
-        # --- [OPEN NEW POSITIONS] ---
         for tr in data:
             coin_idx = int(tr[0])
             if coin_idx >= len(universe): continue
@@ -147,7 +144,6 @@ def run_sync():
             side_text = "BUY" if is_buy else "SELL"
             cur_szi = active_pos.get(coin, 0)
             
-            # If already in the right position, skip
             if (is_buy and cur_szi > 0) or (not is_buy and cur_szi < 0):
                 status_msg = "RUNNING"
                 table_rows += f"<tr><td>{coin}</td><td>{side_text}</td><td>{status_msg}</td></tr>"
@@ -160,7 +156,6 @@ def run_sync():
                 ex.update_leverage(m['maxLeverage'], coin)
                 sz = float(f"{usd_val / px:.{m['szDecimals']}f}")
                 
-                # Min value check (~$10)
                 if (sz * px) < 10.1: sz = float(f"{10.1 / px:.{m['szDecimals']}f}")
                 
                 res = ex.market_open(coin, is_buy, sz, slippage=0.05)

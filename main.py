@@ -1,6 +1,6 @@
-# CODE NUMBER 18
+# CODE NUMBER 27
 # ==============================================================================
-# ⚠️ सख्त चेतावनी (WARNING) - AI और डेवलपर्स के लिए:
+# ⚠️ सख्त चेतावनी (STRICT WARNING) - AI और डेवलपर्स के लिए:
 # नीचे दी गई कैटेगरी को किसी भी हाल में छेड़ना, बदलना या हटाना नहीं है।
 # 1. BRANDING  2. AC STATUS  3. POSITION STATUS  4. TRADING STATUS  5. DATA LOGIC
 # अगर इनमें से कोई भी हिस्सा बदला गया, तो डैशबोर्ड खराब हो जाएगा या गलत डेटा दिखाएगा।
@@ -16,18 +16,19 @@ import os
 import re
 
 app = Flask(__name__)
+
+# --- [CHECK MARK: USER SETTINGS - DO NOT TOUCH] ---
 address = "0x3C00ECF3EaAecBC7F1D1C026DCb925Ac5D2a38C5"
 secret_key = os.getenv("HL_SECRET_KEY")
 account = eth_account.Account.from_key(secret_key) if secret_key else None
 
-# सफाई का फंक्शन (NO SYMBOLS, ALL CAPITAL)
 def clean_status(text):
     clean_text = re.sub(r'[{}()\[\]"\'/,_]', ' ', str(text))
     return " ".join(clean_text.split()).upper()
 
-# शुरुआती हेडर (CENTERED)
+# --- [CHECK MARK: TRADING LOG INITIAL - CENTERED HEADER] ---
 last_trade_log = """
-<div class="trading-header">TRADING STATUS == WAITING FOR SIGNAL</div>
+<div class="trading-header" style="text-align: center;">TRADING STATUS == WAITING FOR SIGNAL</div>
 <table>
     <thead><tr><th>COIN</th><th>DIRECTION</th><th>STATUS</th></tr></thead>
     <tbody><tr><td>SYSTEM</td><td>READY</td><td>WAITING FOR SIGNAL...</td></tr></tbody>
@@ -40,27 +41,39 @@ DASHBOARD_HTML = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script>
-        setTimeout(function(){ location.reload(); }, 60000);
-    </script>
+    <script>setTimeout(function(){ location.reload(); }, 60000);</script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&family=Playfair+Display:ital,wght@0,900;1,900&display=swap');
         body { background: #05070a; color: #ffffff; font-family: 'Inter', sans-serif; margin: 0; padding: 5px; display: flex; justify-content: center; min-height: 100vh; overflow-x: hidden; }
         .container { width: 100%; max-width: 98vw; text-align: center; }
+        
+        /* BRANDING RAINBOW GLOW & BLINK */
         .super-branding { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 900; font-style: italic; background: linear-gradient(90deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000); background-size: 400%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: rainbow 8s linear infinite, glow-blink 2s ease-in-out infinite; margin: 10px 0; }
+        
+        /* PNL POSITIVE RAINBOW GLOW */
+        .pnl-glow-rainbow { background: linear-gradient(90deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000); background-size: 400%; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: rainbow 8s linear infinite; font-weight: 800; }
+        
+        /* PNL NEGATIVE RED BLINKING */
+        .blink-red { color: #ef4444 !important; animation: blinker 1s linear infinite; font-weight: 800; }
+        
         @keyframes rainbow { 0% { background-position: 0%; } 100% { background-position: 400%; } }
+        @keyframes blinker { 50% { opacity: 0; } }
+
         .stats-grid { display: flex; flex-wrap: nowrap; justify-content: space-between; gap: 4px; margin-bottom: 10px; }
         .card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); padding: 8px 2px; border-radius: 4px; flex: 1 1 auto; min-width: 0; }
         .card h4 { margin: 0; color: #8b949e; font-size: 8px; text-transform: uppercase; white-space: nowrap; }
         .card .value { margin-top: 3px; font-size: 10px; font-weight: 800; color: #58a6ff; white-space: nowrap; }
+        
         .pos-table, .trading-box { background: rgba(255, 255, 255, 0.02); border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.08); overflow: hidden; margin-bottom: 10px; }
         .table-header { background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 6px; font-size: 11px; font-weight: 800; border-bottom: 1px solid rgba(16, 185, 129, 0.2); }
-        .trading-header { background: rgba(88, 166, 255, 0.1); color: #58a6ff; padding: 6px; font-size: 11px; font-weight: 800; border-bottom: 1px solid rgba(88, 166, 255, 0.2); text-align: center; }
+        
+        /* TRADING HEADER CENTERED - RESTORED */
+        .trading-header { background: rgba(88, 166, 255, 0.1); color: #58a6ff; padding: 6px; font-size: 11px; font-weight: 800; border-bottom: 1px solid rgba(88, 166, 255, 0.2); text-align: center !important; }
+        
         table { width: 100%; border-collapse: collapse; text-align: left; table-layout: fixed; }
         th { background: rgba(255, 255, 255, 0.02); padding: 6px 4px; font-size: 9px; color: #8b949e; text-transform: uppercase; }
         td { padding: 4px 4px; font-size: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.03); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .plus { color: #10b981; font-weight: bold; }
-        .pnl-minus { color: #ef4444 !important; font-weight: 800; }
         .footer { margin-top: 10px; font-size: 8px; color: #334155; font-weight: bold; }
     </style>
 </head>
@@ -71,11 +84,17 @@ DASHBOARD_HTML = """
         <div class="card"><h4>BALANCE</h4><div class="value">{{ "%.2f"|format(total_val) }}</div></div>
         <div class="card"><h4>TR</h4><div class="value">{{ positions|length }}</div></div>
         <div class="card"><h4>TR VALUE</h4><div class="value">{{ "%.2f"|format(total_ntl) }}</div></div>
-        <div class="card"><h4>PNL</h4><div class="value {{ 'plus' if total_pnl >= 0 else 'pnl-minus' }}">{{ "%.2f"|format(total_pnl) }}</div></div>
+        <div class="card">
+            <h4>PNL</h4>
+            <div class="value {% if total_pnl > 0 %}pnl-glow-rainbow{% elif total_pnl < 0 %}blink-red{% endif %}">
+                {{ "%.2f"|format(total_pnl) }}
+            </div>
+        </div>
         <div class="card"><h4>MARGIN</h4><div class="value">{{ "%.2f"|format(margin_used) }}</div></div>
         <div class="card"><h4>MM</h4><div class="value">{{ "%.2f"|format(maint_margin) }}</div></div>
         <div class="card"><h4>MDD</h4><div class="value">{{ "%.2f"|format(mdd_val) }}</div></div>
     </div>
+    
     <div class="pos-table">
         <div class="table-header">POSITION STATUS &nbsp;&nbsp; == &nbsp;&nbsp; {{ ist_time }}</div>
         <table>
@@ -83,10 +102,10 @@ DASHBOARD_HTML = """
             <tbody>
                 {% for pos in positions %}
                 <tr>
-                    <td style="font-weight:bold;" class="{{ 'plus' if pos.side == 'buy' else 'pnl-minus' }}">{{ pos.coin }}</td>
+                    <td style="font-weight:bold;" class="{{ 'plus' if pos.side == 'buy' else 'blink-red' }}">{{ pos.coin }}</td>
                     <td>{{ pos.szi }}</td><td>${{ pos.entryPx }}</td><td>{{ pos.lev }}x</td>
-                    <td class="{{ 'plus' if pos.pnl >= 0 else 'pnl-minus' }}">{{ "%.4f"|format(pos.pnl) }}</td>
-                    <td class="{{ 'plus' if pos.roe >= 0 else 'pnl-minus' }}">{{ "%.2f"|format(pos.roe) }}%</td>
+                    <td class="{% if pos.pnl > 0 %}plus{% elif pos.pnl < 0 %}blink-red{% endif %}">{{ "%.4f"|format(pos.pnl) }}</td>
+                    <td class="{% if pos.roe > 0 %}plus{% elif pos.roe < 0 %}blink-red{% endif %}">{{ "%.2f"|format(pos.roe) }}%</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -109,45 +128,44 @@ def run_sync():
     ist_now = (datetime.utcnow() + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p')
     
     try:
+        # --- [CHECK MARK: CONNECTING TO HYPERLIQUID API] ---
         info = Info(constants.MAINNET_API_URL)
         ex = Exchange(account, constants.MAINNET_API_URL)
         data = request.json.get("trades", [])
-        
         meta = info.meta()
         mids = info.all_mids()
         user_state = info.user_state(address)
         active_pos = {p['position']['coin']: float(p['position']['szi']) for p in user_state.get('assetPositions', [])}
         universe = [m['name'] for m in meta['universe']]
+        target_names = [universe[int(tr[0])] for tr in data if int(tr[0]) < len(universe)]
 
-        target_names = []
-        for tr in data:
-            idx = int(tr[0])
-            if idx < len(universe): target_names.append(universe[idx])
-
-        # STEP 1: CLOSE
+        # --- [CHECK MARK: LOOP TO CLOSE UNWANTED POSITIONS] ---
         for coin, szi in list(active_pos.items()):
             row = next((t for t in data if universe[int(t[0])] == coin), None)
             target_buy = True if row and str(row[1]).upper() == "TRUE" else False
             if coin not in target_names or (target_buy and szi < 0) or (not target_buy and szi > 0):
                 ex.market_close(coin, reduce_only=True)
                 side = "SELL" if szi > 0 else "BUY"
-                table_rows += f"<tr><td>{coin}</td><td>{side}</td><td>CLOSE</td></tr>"
-                logs_data.append(f"{coin}, {side}, CLOSE")
+                # STATUS DESCRIPTION RESTORED TO ORIGINAL
+                status_msg = "POSITION CLOSED SUCCESSFULLY"
+                table_rows += f"<tr><td>{coin}</td><td>{side}</td><td>{status_msg}</td></tr>"
+                logs_data.append(f"{coin}, {side}, {status_msg}")
                 if coin in active_pos: del active_pos[coin]
 
-        # STEP 2: EXECUTION
+        # --- [CHECK MARK: LOOP TO OPEN NEW POSITIONS] ---
         for tr in data:
             coin_idx = int(tr[0])
             if coin_idx >= len(universe): continue
-            coin = universe[coin_idx]
-            is_buy = (str(tr[1]).upper() == "TRUE")
-            usd_val = float(tr[2])
+            coin, is_buy, usd_val = universe[coin_idx], (str(tr[1]).upper() == "TRUE"), float(tr[2])
             side_text = "BUY" if is_buy else "SELL"
             cur_szi = active_pos.get(coin, 0)
+            
             if (is_buy and cur_szi > 0) or (not is_buy and cur_szi < 0):
-                table_rows += f"<tr><td>{coin}</td><td>{side_text}</td><td>RUNNING</td></tr>"
-                logs_data.append(f"{coin}, {side_text}, RUNNING")
+                status_msg = "POSITION ALREADY RUNNING"
+                table_rows += f"<tr><td>{coin}</td><td>{side_text}</td><td>{status_msg}</td></tr>"
+                logs_data.append(f"{coin}, {side_text}, {status_msg}")
                 continue
+                
             try:
                 m = next(m for m in meta['universe'] if m['name'] == coin)
                 px = float(mids[coin])
@@ -155,9 +173,11 @@ def run_sync():
                 sz = float(f"{usd_val / px:.{m['szDecimals']}f}")
                 if (sz * px) < 10: sz = float(f"{10.1 / px:.{m['szDecimals']}f}")
                 res = ex.market_open(coin, is_buy, sz, slippage=0.01)
+                
                 if res["status"] == "ok":
-                    table_rows += f"<tr><td>{coin}</td><td>{side_text}</td><td>ENTRY</td></tr>"
-                    logs_data.append(f"{coin}, {side_text}, ENTRY")
+                    status_msg = "NEW ENTRY EXECUTED"
+                    table_rows += f"<tr><td>{coin}</td><td>{side_text}</td><td>{status_msg}</td></tr>"
+                    logs_data.append(f"{coin}, {side_text}, {status_msg}")
                 else:
                     err = clean_status(res.get("response", "ERROR"))
                     table_rows += f"<tr><td>{coin}</td><td>{side_text}</td><td>{err}</td></tr>"
@@ -167,7 +187,7 @@ def run_sync():
                 table_rows += f"<tr><td>{coin}</td><td>{side_text}</td><td>{err_clean}</td></tr>"
                 logs_data.append(f"{coin}, {side_text}, {err_clean}")
 
-        # TRADING STATUS HEADER - CENTERED
+        # --- [CHECK MARK: FINAL TRADING LOG UPDATE] ---
         last_trade_log = f"""
         <div class="trading-header">TRADING STATUS &nbsp;&nbsp; == &nbsp;&nbsp; {ist_now}</div>
         <table>
@@ -175,29 +195,29 @@ def run_sync():
             <tbody>{table_rows}</tbody>
         </table>
         """
+        # RESTORED: GOOGLE SHEET DATA FORMAT (\n)
         return jsonify({"status": "ok", "msg": "\\n".join(logs_data)}), 200
 
     except Exception as e:
-        err_final = clean_status(e)
         last_trade_log = f"<div class='trading-header' style='color:#ef4444;'>ERROR == {ist_now}</div>"
-        return jsonify({"status": "error", "msg": err_final}), 500
+        return jsonify({"status": "error", "msg": clean_status(e)}), 500
 
 @app.route('/')
 def dashboard():
     try:
+        # --- [CHECK MARK: FETCHING DASHBOARD DATA] ---
         info = Info(constants.MAINNET_API_URL)
         spot, trade = info.spot_user_state(address), info.user_state(address)
         m_sum = trade.get('marginSummary', {})
         acc_val = float(m_sum.get('accountValue', 0))
         spot_bal = next((float(b['total']) for b in spot.get('balances', []) if b['coin'] == 'USDC'), 0.0)
-        vault_bal = sum(float(v.get('equity', 0)) for v in info.user_vault_equities(address))
-        current_total = spot_bal + acc_val + vault_bal
-        mdd_val = max(0.0, acc_val - float(trade.get('withdrawable', acc_val)))
-        ist_formatted = (datetime.utcnow() + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p')
+        v_bal = sum(float(v.get('equity', 0)) for v in info.user_vault_equities(address))
         data = {
-            'total_val': current_total, 'margin_used': float(m_sum.get('totalMarginUsed', 0)),
+            'total_val': spot_bal + acc_val + v_bal, 'margin_used': float(m_sum.get('totalMarginUsed', 0)),
             'total_ntl': float(m_sum.get('totalNtlPos', 0)), 'maint_margin': float(trade.get('crossMaintenanceMarginUsed', 0)),
-            'ist_time': ist_formatted, 'mdd_val': mdd_val, 'log_msg': last_trade_log, 'positions': [], 'total_pnl': 0
+            'ist_time': (datetime.utcnow() + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p'),
+            'mdd_val': max(0.0, acc_val - float(trade.get('withdrawable', acc_val))),
+            'log_msg': last_trade_log, 'positions': [], 'total_pnl': 0
         }
         for p_wrap in trade.get('assetPositions', []):
             p = p_wrap['position']

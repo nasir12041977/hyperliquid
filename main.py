@@ -1,5 +1,5 @@
 # ============================================================================================================
-# CODE EDIT NUMBER : 54
+# CODE EDIT NUMBER : 56
 # 1. ⚠️ सख्त चेतावनी (STRICT WARNING): इन सभी निर्देशों का हर हाल में पालन करना अनिवार्य है।
 # 2. कोड में किसी भी तरह का बदलाव करने से पहले, आपको लिखित में समस्या (Problem) और समाधान (Solution) दोनों बताने होंगे।
 # 3. यदि आपको कोड बदलने के लिए कहा भी जाए, तब भी आपको प्रक्रिया शुरू करने से पहले एक बार अनुमति मांगनी होगी।
@@ -10,6 +10,8 @@
 # 8. कोड में सुधार करने से पहले github hyperliquid-python-sdk और hyperliquid API Documentation जरूर पढ़ें।
 # 9. निम्नलिखित हिस्से सुरक्षित हैं: 1. BRANDING, 2. AC STATUS, 3. POSITION STATUS, 4. TRADING STATUS, 5. DATA LOGIC।
 # 10. यदि इन सुरक्षित हिस्सों में बदलाव किया गया, तो डैशबोर्ड खराब हो जाएगा या गलत डेटा दिखाएगा।
+# ============================================================================================================
+
 # ============================================================================================================
 # [CODE STRUCTURE MAP - कोड की रूपरेखा]
 # 1. SETTINGS & SETUP      : API और अकाउंट सेटिंग्स (Line 45-60)
@@ -35,7 +37,6 @@ app = Flask(__name__)
 
 # --- [SECTION 1: SETTINGS & SETUP] ---
 # यहाँ आपके अकाउंट की जानकारी और फाइल सेटिंग्स स्टोर होती हैं
-# Global configuration and account authentication setup
 address = "0x3C00ECF3EaAecBC7F1D1C026DCb925Ac5D2a38C5"
 secret_key = os.getenv("HL_SECRET_KEY")
 account = eth_account.Account.from_key(secret_key) if secret_key else None
@@ -43,7 +44,6 @@ PEAK_FILE = "mdd_peak.txt"
 
 def get_and_update_peak(current_balance):
     # MDD निकालने के लिए अब तक के सबसे ऊंचे बैलेंस को याद रखने का लॉजिक
-    # Logic to track and store the highest equity peak for MDD calculation
     peak = current_balance
     if os.path.exists(PEAK_FILE):
         with open(PEAK_FILE, "r") as f:
@@ -63,7 +63,6 @@ def clean_status(text):
     return " ".join(clean_text.split()).upper()
 
 # शुरुआती मैसेज जब तक कोई ट्रेड सिग्नल न मिले
-# Default message displayed in Logs Table before any trade activity
 last_trade_log = """
 <div class="trading-header" style="text-align: center;">TRADING STATUS == WAITING FOR SIGNAL</div>
 <table style="width: 100%; text-align: center;">
@@ -74,7 +73,6 @@ last_trade_log = """
 
 # --- [SECTION 2: DASHBOARD UI - FRONTEND] ---
 # यहाँ से तस्वीर में दिखने वाली पूरी वेबसाइट का डिजाइन कंट्रोल होता है
-# Frontend template controlling the visual layout and styles
 DASHBOARD_HTML = """
 <!DOCTYPE html>
 <html lang="en">
@@ -160,7 +158,6 @@ DASHBOARD_HTML = """
 
 # --- [SECTION 3: TRADING LOGIC] ---
 # यह हिस्सा तय करता है कि सिग्नल आने पर क्या एक्शन लेना है
-# Backend logic to process incoming trade signals and execute orders
 @app.route('/trade', methods=['POST'])
 def run_sync():
     global last_trade_log
@@ -180,7 +177,6 @@ def run_sync():
         target_names = [universe[int(tr[0])] for tr in data if int(tr[0]) < len(universe)]
 
         # ट्रेड क्लोज करने का लॉजिक
-        # Logic to close positions not present in the current signal
         for coin, szi in list(active_pos.items()):
             row = next((t for t in data if universe[int(t[0])] == coin), None)
             target_buy = True if row and str(row[1]).upper() == "TRUE" else False
@@ -196,7 +192,6 @@ def run_sync():
                 if coin in active_pos: del active_pos[coin]
 
         # नया ट्रेड खोलने या चालू रखने का लॉजिक
-        # Logic to open new positions or maintain running ones
         for trade_row in data:
             coin_idx = int(trade_row[0])
             if coin_idx >= len(universe): continue
@@ -248,7 +243,6 @@ def run_sync():
 
 # --- [SECTION 4: DATA CALCULATION] ---
 # यहाँ आपके पूरे पोर्टफोलियो की वैल्यू और PNL की गणना की जाती है
-# Logic for aggregating account data and calculating dashboard metrics
 @app.route('/')
 def dashboard():
     try:
@@ -262,17 +256,15 @@ def dashboard():
         
         m_sum = trade.get('marginSummary', {})
         acc_val = float(m_sum.get('accountValue', 0))
-        
-        current_total = spot_bal + acc_val + vault_bal
-        
-        # --- NEW CALCULATION LOGIC ---
         margin_used = float(m_sum.get('totalMarginUsed', 0))
-        final_balance = current_total - margin_used
-        # -----------------------------
-
-        peak_balance = get_and_update_peak(current_total)
-        mdd_val = peak_balance - current_total if current_total < peak_balance else 0.0
         
+        # कुल बैलेंस की असली वैल्यू (Spot + Vault + Account) - Margin Used
+        # Final consolidated equity value minus margin as per user logic
+        total_equity = (spot_bal + acc_val + vault_bal) - margin_used
+
+        peak_balance = get_and_update_peak(total_equity)
+        mdd_val = peak_balance - total_equity if total_equity < peak_balance else 0.0
+
         data = {
             'total_equity': total_equity, 
             'margin_used': margin_used,
@@ -286,7 +278,6 @@ def dashboard():
         }
         
         # पोजीशन टेबल के लिए डेटा तैयार करना
-        # Preparing data objects for the Positions Table
         for p_wrap in trade.get('assetPositions', []):
             p = p_wrap['position']
             if float(p['szi']) != 0:

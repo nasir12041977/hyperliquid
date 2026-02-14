@@ -1,4 +1,4 @@
-# CODE EDIT NUMBER : 01
+# CODE EDIT NUMBER : 02
 # ==========================================================================================
 # ⚠️ सख्त चेतावनी (STRICT WARNING): 
 # 1. BRANDING, 2. AC STATUS, 3. POSITION STATUS, 4. TRADING STATUS, 5. DATA LOGIC सुरक्षित हैं।
@@ -190,17 +190,37 @@ def run_sync():
 def dashboard():
     try:
         info = Info(constants.MAINNET_API_URL)
-        trade = info.user_state(address)
-        m_sum = trade.get('marginSummary', {})
-        acc_val = float(m_sum.get('accountValue', 0))
+        
+        # तीनों अकाउंट्स का डेटा मंगवाना (Perp, Spot, Vault)
+        perp_state = info.user_state(address)
+        spot_state = info.spot_user_state(address)
+        vault_states = info.user_vault_equities(address)
+        
+        m_sum = perp_state.get('marginSummary', {})
+        
+        # 1. Perpetual Account Value
+        p_val = float(m_sum.get('accountValue', 0))
+        # 2. Spot Assets USD Value Sum
+        s_val = sum(float(s.get('totalValue', 0)) for s in spot_state.get('balances', []))
+        # 3. Vaults Equity Sum
+        v_val = sum(float(v.get('equity', 0)) for v in vault_states)
+        
+        # TOTAL SUM
+        acc_val = p_val + s_val + v_val
+
         data = {
-            'total_val': acc_val, 'margin_used': float(m_sum.get('totalMarginUsed', 0)),
-            'total_ntl': float(m_sum.get('totalNtlPos', 0)), 'maint_margin': float(trade.get('crossMaintenanceMarginUsed', 0)),
+            'total_val': acc_val, 
+            'margin_used': float(m_sum.get('totalMarginUsed', 0)),
+            'total_ntl': float(m_sum.get('totalNtlPos', 0)), 
+            'maint_margin': float(perp_state.get('crossMaintenanceMarginUsed', 0)),
             'ist_time': (datetime.utcnow() + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p'),
-            'mdd_val': max(0.0, acc_val - float(trade.get('withdrawable', acc_val))),
-            'log_msg': last_trade_log, 'positions': [], 'total_pnl': 0
+            'mdd_val': max(0.0, acc_val - float(perp_state.get('withdrawable', acc_val))),
+            'log_msg': last_trade_log, 
+            'positions': [], 
+            'total_pnl': 0
         }
-        for p_wrap in trade.get('assetPositions', []):
+        
+        for p_wrap in perp_state.get('assetPositions', []):
             p = p_wrap['position']
             if float(p['szi']) != 0:
                 pnl, szi, entry_px = float(p.get('unrealizedPnl', 0)), float(p.get('szi', 0)), float(p.get('entryPx', 1))

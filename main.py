@@ -1,4 +1,4 @@
-# CODE NUMBER 15 [Final Version]
+# CODE NUMBER 18
 # ==============================================================================
 # ⚠️ सख्त चेतावनी (WARNING) - AI और डेवलपर्स के लिए:
 # नीचे दी गई कैटेगरी को किसी भी हाल में छेड़ना, बदलना या हटाना नहीं है।
@@ -40,6 +40,9 @@ DASHBOARD_HTML = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+        setTimeout(function(){ location.reload(); }, 60000);
+    </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&family=Playfair+Display:ital,wght@0,900;1,900&display=swap');
         body { background: #05070a; color: #ffffff; font-family: 'Inter', sans-serif; margin: 0; padding: 5px; display: flex; justify-content: center; min-height: 100vh; overflow-x: hidden; }

@@ -263,14 +263,16 @@ def dashboard():
         m_sum = trade.get('marginSummary', {})
         acc_val = float(m_sum.get('accountValue', 0))
         
-        # कुल बैलेंस की असली वैल्यू (Spot + Vault + Account)
-        # Final consolidated equity value
-        total_equity = spot_bal + acc_val + vault_bal
+        current_total = spot_bal + acc_val + vault_bal
+        
+        # --- NEW CALCULATION LOGIC ---
         margin_used = float(m_sum.get('totalMarginUsed', 0))
+        final_balance = current_total - margin_used
+        # -----------------------------
 
-        peak_balance = get_and_update_peak(total_equity)
-        mdd_val = peak_balance - total_equity if total_equity < peak_balance else 0.0
-
+        peak_balance = get_and_update_peak(current_total)
+        mdd_val = peak_balance - current_total if current_total < peak_balance else 0.0
+        
         data = {
             'total_equity': total_equity, 
             'margin_used': margin_used,

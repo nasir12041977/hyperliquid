@@ -1,4 +1,4 @@
-# CODE EDIT NUMBER : 03 (PROBLAM : )
+# CODE EDIT NUMBER : 04 ( PROBLAM :  )
 # ============================================================================================================
 # 1. ⚠️ सख्त चेतावनी (STRICT WARNING): इन सभी निर्देशों का हर हाल में पालन करना अनिवार्य है।
 # 2. कोड में किसी भी तरह का बदलाव करने से पहले, आपको लिखित में समस्या (Problem) और समाधान (Solution) दोनों बताने होंगे।
@@ -198,48 +198,52 @@ def dashboard():
     try:
         info = Info(constants.MAINNET_API_URL)
         
-        # तीनों अकाउंट्स का डेटा मंगवाना (Perp, Spot, Vault)
         perp_state = info.user_state(address)
         spot_state = info.spot_user_state(address)
         vault_states = info.user_vault_equities(address)
         
         m_sum = perp_state.get('marginSummary', {})
         
-        # 1. Perpetual & Cash Value (Total Wallet Equity)
-        # accountValue generally combines position value + cash.
-        p_val = float(m_sum.get('accountValue', 0))
-        
-        # 2. Spot Assets USD Value Sum
-        s_val = sum(float(s.get('totalValue', 0)) for s in spot_state.get('balances', []))
-        
-        # 3. Vaults Equity Sum
-        v_val = sum(float(v.get('equity', 0)) for v in vault_states)
-        
-        # TOTAL SUM: Account Value + Spot + Vaults
-        acc_val = p_val + s_val + v_val
+        # --- DATA LOGIC: FIXED BALANCE CALCULATION ---
+        # Withdrawable balance + Total Margin Used + Unrealized PnL (to get accurate Net Value)
+        withdrawable = float(perp_state.get('withdrawable', 0))
+        margin_used = float(m_sum.get('totalMarginUsed', 0))
+        total_pnl = 0
+        positions_list = []
 
-        data = {
-            'total_val': acc_val, 
-            'margin_used': float(m_sum.get('totalMarginUsed', 0)),
-            'total_ntl': float(m_sum.get('totalNtlPos', 0)), 
-            'maint_margin': float(perp_state.get('crossMaintenanceMarginUsed', 0)),
-            'ist_time': (datetime.utcnow() + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p'),
-            'mdd_val': max(0.0, acc_val - float(perp_state.get('withdrawable', acc_val))),
-            'log_msg': last_trade_log, 
-            'positions': [], 
-            'total_pnl': 0
-        }
-        
         for p_wrap in perp_state.get('assetPositions', []):
             p = p_wrap['position']
             if float(p['szi']) != 0:
                 pnl, szi, entry_px = float(p.get('unrealizedPnl', 0)), float(p.get('szi', 0)), float(p.get('entryPx', 1))
-                data['positions'].append({
+                positions_list.append({
                     'coin': p['coin'], 'szi': p['szi'], 'entryPx': p['entryPx'], 'pnl': pnl, 
                     'lev': p.get('leverage', {}).get('value', 0),
                     'roe': (pnl / (abs(szi) * entry_px)) * 100 if szi != 0 else 0, 'side': 'buy' if szi > 0 else 'sell'
                 })
-                data['total_pnl'] += pnl
+                total_pnl += pnl
+
+        # Correct Perpetual Balance
+        p_val = withdrawable + margin_used
+        
+        # Spot & Vaults
+        s_val = sum(float(s.get('totalValue', 0)) for s in spot_state.get('balances', []))
+        v_val = sum(float(v.get('equity', 0)) for v in vault_states)
+        
+        # FINAL TOTAL BALANCE
+        acc_val = p_val + s_val + v_val
+
+        data = {
+            'total_val': acc_val, 
+            'margin_used': margin_used,
+            'total_ntl': float(m_sum.get('totalNtlPos', 0)), 
+            'maint_margin': float(perp_state.get('crossMaintenanceMarginUsed', 0)),
+            'ist_time': (datetime.utcnow() + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p'),
+            'mdd_val': max(0.0, acc_val - withdrawable),
+            'log_msg': last_trade_log, 
+            'positions': positions_list, 
+            'total_pnl': total_pnl
+        }
+        
         return render_template_string(DASHBOARD_HTML, **data)
     except Exception as e: return f"SERVER ERROR: {str(e)}"
 

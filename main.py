@@ -1,4 +1,4 @@
-# CODE EDIT NUMBER : 05 ( PROBLEM : BALANCE PURA NAHI AA RAHA KUM - FIXED )
+# CODE EDIT NUMBER : 06 ( PROBLEM : BALANCE PURA NAHI AA RAHA KUM DIKH RAHA HE - RESOLVED )
 # ============================================================================================================
 # 1. ⚠️ सख्त चेतावनी (STRICT WARNING): इन सभी निर्देशों का हर हाल में पालन करना अनिवार्य है।
 # 2. कोड में किसी भी तरह का बदलाव करने से पहले, आपको लिखित में समस्या (Problem) और समाधान (Solution) दोनों बताने होंगे।
@@ -205,17 +205,22 @@ def dashboard():
         m_sum = perp_state.get('marginSummary', {})
         
         # --- DATA LOGIC: FINAL CORRECT BALANCE CALCULATION ---
-        # 1. accountValue = Margin Cash + Unrealized PnL (API provide correct net worth for Perps)
+        # 1. Perp Account Value (Settled Cash + Unrealized PnL)
         p_val = float(m_sum.get('accountValue', 0))
         
-        # 2. Spot Value (Current value of all spot holdings)
+        # 2. Withdrawable Cash (Actual cash available, used to verify liquidity)
+        w_cash = float(perp_state.get('withdrawable', 0))
+        
+        # 3. Spot Value (Current value of all spot holdings)
         s_val = sum(float(s.get('totalValue', 0)) for s in spot_state.get('balances', []))
         
-        # 3. Vault Value (Equity in all subscribed vaults)
+        # 4. Vault Value (Equity in all subscribed vaults)
         v_val = sum(float(v.get('equity', 0)) for v in vault_states)
         
-        # FINAL TOTAL BALANCE (Sum of all parameters)
-        acc_val = p_val + s_val + v_val
+        # FINAL TOTAL BALANCE (Logic updated to ensure no fund is left out)
+        # Using accountValue + spot + vault. 
+        # If accountValue is less than withdrawable (rare cross-margin case), we adjust.
+        acc_val = max(p_val, w_cash) + s_val + v_val
 
         total_pnl = 0
         positions_list = []
@@ -236,7 +241,7 @@ def dashboard():
             'total_ntl': float(m_sum.get('totalNtlPos', 0)), 
             'maint_margin': float(perp_state.get('crossMaintenanceMarginUsed', 0)),
             'ist_time': (datetime.utcnow() + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p'),
-            'mdd_val': max(0.0, acc_val - float(perp_state.get('withdrawable', 0))),
+            'mdd_val': max(0.0, acc_val - w_cash),
             'log_msg': last_trade_log, 
             'positions': positions_list, 
             'total_pnl': total_pnl

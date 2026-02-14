@@ -1,5 +1,5 @@
 # ============================================================================================================
-# CODE EDIT NUMBER : 50 (CODE STATUS)
+# CODE EDIT NUMBER : 51
 # 1. ⚠️ सख्त चेतावनी (STRICT WARNING): इन सभी निर्देशों का हर हाल में पालन करना अनिवार्य है।
 # 2. कोड में किसी भी तरह का बदलाव करने से पहले, आपको लिखित में समस्या (Problem) और समाधान (Solution) दोनों बताने होंगे।
 # 3. यदि आपको कोड बदलने के लिए कहा भी जाए, तब भी आपको प्रक्रिया शुरू करने से पहले एक बार अनुमति मांगनी होगी।
@@ -231,9 +231,12 @@ def dashboard():
         peak_balance = get_and_update_peak(current_total)
         mdd_val = peak_balance - current_total if current_total < peak_balance else 0.0
 
+        # Logic Update: Balance displayed as (Total Balance - Margin Used)
+        margin_val = float(m_sum.get('totalMarginUsed', 0))
+
         data = {
-            'total_val': current_total, 
-            'margin_used': float(m_sum.get('totalMarginUsed', 0)),
+            'total_val': current_total - margin_val, 
+            'margin_used': margin_val,
             'total_ntl': float(m_sum.get('totalNtlPos', 0)), 
             'maint_margin': float(trade.get('crossMaintenanceMarginUsed', 0)),
             'ist_time': (datetime.utcnow() + timedelta(hours=5, minutes=30)).strftime('%d %b, %I:%M:%S %p'),

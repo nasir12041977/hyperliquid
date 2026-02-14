@@ -1,9 +1,16 @@
-# CODE EDIT NUMBER : 02
-# ==========================================================================================
-# ⚠️ सख्त चेतावनी (STRICT WARNING): 
-# 1. BRANDING, 2. AC STATUS, 3. POSITION STATUS, 4. TRADING STATUS, 5. DATA LOGIC सुरक्षित हैं।
-# अगर इनमें से कोई भी हिस्सा बदला गया, तो डैशबोर्ड खराब हो जाएगा या गलत डेटा दिखाएगा।
-# ==========================================================================================
+# CODE EDIT NUMBER : 03 (PROBLAM : )
+# ============================================================================================================
+# 1. ⚠️ सख्त चेतावनी (STRICT WARNING): इन सभी निर्देशों का हर हाल में पालन करना अनिवार्य है।
+# 2. कोड में किसी भी तरह का बदलाव करने से पहले, आपको लिखित में समस्या (Problem) और समाधान (Solution) दोनों बताने होंगे।
+# 3. यदि आपको कोड बदलने के लिए कहा भी जाए, तब भी आपको प्रक्रिया शुरू करने से पहले एक बार अनुमति मांगनी होगी।
+# 4. जब तक स्पष्ट अनुमति (Permission) न दी जाए, तब तक कोड को न तो लिखें और न ही उसमें कोई बदलाव करें।
+# 5. जब भी आप कोड में कोई बदलाव करें, तो 'कोड एडिट नंबर' को जरूर बदलें अधूरा कोड बिल्कुल भी स्वीकार नहीं किया जाएगा।।
+# 6. पूरे कोड के भीतर किसी भी चेतावनी कमेंट (Warning Comment) को न तो बदलें और न ही वहां से हटाएँ।
+# 7. केवल उसी समस्या पर काम करें जो आपको बताई गई है, उसके अलावा कोड में अन्य कुछ भी न बदलें।
+# 8. कोड में सुधार करने से पहले github hyperliquid-python-sdk और hyperliquid API Documentation जरूर पढ़ें।
+# 9. निम्नलिखित हिस्से सुरक्षित हैं: 1. BRANDING, 2. AC STATUS, 3. POSITION STATUS, 4. TRADING STATUS, 5. DATA LOGIC।
+# 10. यदि इन सुरक्षित हिस्सों में बदलाव किया गया, तो डैशबोर्ड खराब हो जाएगा या गलत डेटा दिखाएगा।
+# ============================================================================================================
 
 from flask import Flask, render_template_string, request, jsonify
 from hyperliquid.info import Info
@@ -198,14 +205,17 @@ def dashboard():
         
         m_sum = perp_state.get('marginSummary', {})
         
-        # 1. Perpetual Account Value
+        # 1. Perpetual & Cash Value (Total Wallet Equity)
+        # accountValue generally combines position value + cash.
         p_val = float(m_sum.get('accountValue', 0))
+        
         # 2. Spot Assets USD Value Sum
         s_val = sum(float(s.get('totalValue', 0)) for s in spot_state.get('balances', []))
+        
         # 3. Vaults Equity Sum
         v_val = sum(float(v.get('equity', 0)) for v in vault_states)
         
-        # TOTAL SUM
+        # TOTAL SUM: Account Value + Spot + Vaults
         acc_val = p_val + s_val + v_val
 
         data = {

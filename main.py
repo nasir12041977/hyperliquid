@@ -1,5 +1,6 @@
 import os
 import json
+import requests
 from flask import Flask, request, jsonify
 from eth_account import Account
 from hyperliquid.utils import constants
@@ -8,20 +9,24 @@ from hyperliquid.info import Info
 
 app = Flask(__name__)
 
-SECRET_KEY = os.getenv("HL_SECRET_KEY")
-ACCOUNT_ADDRESS = os.getenv("HL_ADDRESS")
+HL_SECRET_KEY = os.getenv("HL_SECRET_KEY")
+HL_ADDRESS = os.getenv("HL_ADDRESS")
 
-account = Account.from_key(SECRET_KEY)
+account = Account.from_key(HL_SECRET_KEY)
 
 info = Info(constants.MAINNET_API_URL)
 exchange = Exchange(account, constants.MAINNET_API_URL)
 
+HL_INFO_URL = "https://api.hyperliquid.xyz/info"
+
 def get_vault_equity(address):
-    # raw API call (SDK में function नहीं है)
-    return info._post("/info", {
+    payload = {
         "type": "userVaultEquities",
         "user": address
-    })
+    }
+    r = requests.post(HL_INFO_URL, json=payload, timeout=10)
+    data = r.json()
+    return sum(float(v["equity"]) for v in data)
 
 @app.route("/trade", methods=["POST"])
 def handle_request():
@@ -31,14 +36,13 @@ def handle_request():
 
         # ================= BALANCE MODE =================
         if action == "BALANCE":
-            user_state = info.user_state(ACCOUNT_ADDRESS)
+            user_state = info.user_state(HL_ADDRESS)
 
             trading_equity = float(
                 user_state.get("marginSummary", {}).get("accountValue", 0)
             )
 
-            vault_data = get_vault_equity(ACCOUNT_ADDRESS)
-            vault_equity = sum(float(v["equity"]) for v in vault_data)
+            vault_equity = get_vault_equity(HL_ADDRESS)
 
             total_equity = trading_equity + vault_equity
 

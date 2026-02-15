@@ -1,64 +1,35 @@
 import os
 import json
 from flask import Flask, request, jsonify
-from eth_account import Account
 from hyperliquid.utils import constants
-from hyperliquid.exchange import Exchange
 from hyperliquid.info import Info
 
 app = Flask(__name__)
 
-# एनवायरनमेंट वेरिएबल्स (ये Render से अपने आप जुड़ जाएंगे)
-SECRET_KEY = os.getenv("HL_PRIVATE_KEY")
 ACCOUNT_ADDRESS = os.getenv("HL_WALLET_ADDRESS")
-
-# Hyperliquid सेटअप
 info = Info(constants.MAINNET_API_URL)
-exchange = Exchange(Account.from_key(SECRET_KEY), constants.MAINNET_API_URL)
 
 @app.route('/trade', methods=['POST'])
 def handle_request():
     try:
         data = request.json
         action = data.get("action")
-
-        # 1. बैलेंस का हिस्सा: जैसा एक्सचेंज से आएगा, वैसा ही भेज देगा
+        
         if action == "BALANCE":
+            # 1. ट्रेडिंग और मार्जिन अकाउंट का पूरा डेटा
             user_state = info.user_state(ACCOUNT_ADDRESS)
-            return jsonify({"msg": json.dumps(user_state)})
-
-        # 2. ट्रेड का हिस्सा: आपके 0, TRUE, 11 वाले फॉर्मेट के लिए
-        elif action == "TRADE":
-            trades = data.get("trades", [])
-            if not trades:
-                return jsonify({"msg": "No trade data found"})
-
-            meta = info.meta()
-            universe_list = meta["universe"]
+            # 2. स्पॉट वॉलेट (सिक्कों) का पूरा डेटा
+            spot_state = info.spot_user_state(ACCOUNT_ADDRESS)
             
-            output_logs = []
-            for trade in trades:
-                # आपके Google Sheet से आने वाला डेटा
-                idx = int(trade.get("index"))
-                is_buy = trade.get("isBuy")
-                usd_size = float(trade.get("usdSize"))
-
-                # इंडेक्स के जरिए सही कॉइन का नाम और डेसीमल ढूंढना
-                coin_meta = universe_list[idx]
-                coin = coin_meta["name"]
-                sz_decimals = coin_meta["szDecimals"]
-
-                # साइज को राउंड करना
-                final_sz = abs(round(usd_size, sz_decimals))
-
-                # ट्रेड मारना
-                order_result = exchange.market_open(coin, is_buy, final_sz)
-                output_logs.append(f"{coin}: {json.dumps(order_result)}")
-
-            return jsonify({"msg": "\n".join(output_logs)})
-
+            # दोनों को एक साथ जोड़कर जैसा है वैसा ही भेज रहा हूँ
+            combined_report = {
+                "margin_and_trading": user_state,
+                "spot_wallet": spot_state
+            }
+            
+            return jsonify({"msg": json.dumps(combined_report)})
+            
         return jsonify({"msg": "Invalid Action"})
-
     except Exception as e:
         return jsonify({"msg": f"System Error: {str(e)}"})
 

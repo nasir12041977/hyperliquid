@@ -16,12 +16,12 @@ def handle_request():
         action = data.get("action")
         
         if action == "BALANCE":
-            # 1. ट्रेडिंग और मार्जिन अकाउंट का पूरा डेटा
+            # 1. ट्रेडिंग और मार्जिन डेटा
             user_state = info.user_state(ACCOUNT_ADDRESS)
-            # 2. स्पॉट वॉलेट (सिक्कों) का पूरा डेटा
-            spot_state = info.spot_user_state(ACCOUNT_ADDRESS)
             
-            # दोनों को एक साथ जोड़कर जैसा है वैसा ही भेज रहा हूँ
+            # 2. स्पॉट वॉलेट का डेटा (सही तरीका)
+            spot_state = info.user_spot_state(ACCOUNT_ADDRESS)
+            
             combined_report = {
                 "margin_and_trading": user_state,
                 "spot_wallet": spot_state

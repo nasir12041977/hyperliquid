@@ -9,8 +9,12 @@ from hyperliquid.info import Info
 
 app = Flask(__name__)
 
+# ===== ENV VARS =====
 HL_SECRET_KEY = os.getenv("HL_SECRET_KEY")
 HL_ADDRESS = os.getenv("HL_ADDRESS")
+
+if not HL_SECRET_KEY or not HL_ADDRESS:
+    raise Exception("HL_SECRET_KEY or HL_ADDRESS missing")
 
 account = Account.from_key(HL_SECRET_KEY)
 
@@ -19,6 +23,7 @@ exchange = Exchange(account, constants.MAINNET_API_URL)
 
 HL_INFO_URL = "https://api.hyperliquid.xyz/info"
 
+# -------- VAULT EQUITY (RAW API) --------
 def get_vault_equity(address):
     payload = {
         "type": "userVaultEquities",
@@ -26,7 +31,7 @@ def get_vault_equity(address):
     }
     r = requests.post(HL_INFO_URL, json=payload, timeout=10)
     data = r.json()
-    return sum(float(v["equity"]) for v in data)
+    return sum(float(v.get("equity", 0)) for v in data)
 
 @app.route("/trade", methods=["POST"])
 def handle_request():
@@ -37,14 +42,24 @@ def handle_request():
         # ================= BALANCE MODE =================
         if action == "BALANCE":
             user_state = info.user_state(HL_ADDRESS)
+            spot_state = info.spot_user_state(HL_ADDRESS)
 
+            # Perp Trading Equity
             trading_equity = float(
                 user_state.get("marginSummary", {}).get("accountValue", 0)
             )
 
+            # Spot USDC
+            spot_usdc = 0.0
+            for b in spot_state.get("balances", []):
+                if b.get("coin") == "USDC":
+                    spot_usdc = float(b.get("total", 0))
+
+            # Vault Equity
             vault_equity = get_vault_equity(HL_ADDRESS)
 
-            total_equity = trading_equity + vault_equity
+            # Final Total Equity
+            total_equity = trading_equity + spot_usdc + vault_equity
 
             return jsonify({
                 "msg": f"Total Equity: {round(total_equity, 2)}"
@@ -65,6 +80,7 @@ def handle_request():
                 coin = trade[0]
                 side = trade[1]
                 usd_size = float(trade[2])
+
                 if usd_size <= 0:
                     continue
 

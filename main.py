@@ -8,67 +8,67 @@ from hyperliquid.info import Info
 
 app = Flask(__name__)
 
-HL_SECRET_KEY = os.getenv("HL_SECRET_KEY")
-HL_ADDRESS = os.getenv("HL_ADDRESS")
+# ===== ENV VARS =====
+SECRET_KEY = os.getenv("HL_SECRET_KEY")
+ACCOUNT_ADDRESS = os.getenv("HL_ADDRESS")
+
+if not SECRET_KEY or not ACCOUNT_ADDRESS:
+    raise Exception("HL_SECRET_KEY or HL_ADDRESS missing")
+
+account = Account.from_key(SECRET_KEY)
+
+info = Info(constants.MAINNET_API_URL)
+exchange = Exchange(account, constants.MAINNET_API_URL)
 
 @app.route("/trade", methods=["POST"])
 def handle_request():
     try:
-        data = request.json or {}
+        data = request.json
         action = data.get("action")
 
-        info = Info(constants.MAINNET_API_URL)
-
-        # ===== BALANCE MODE =====
+        # ================= BALANCE MODE =================
         if action == "BALANCE":
-            user_state = info.user_state(HL_ADDRESS)
+            user_state = info.user_state(ACCOUNT_ADDRESS)
 
-            # Trading Equity (Perp)
-            cross = user_state.get("crossMarginSummary", {})
-            trading_equity = cross.get("accountValue", "0.0")
-
-            # Vault Equity
-            vaults = info.user_vaults(HL_ADDRESS)
-            vault_equity = "0.0"
-            if vaults and len(vaults) > 0:
-                vault_equity = vaults[0].get("equity", "0.0")
+            margin = user_state.get("marginSummary", {})
+            total_equity = float(margin.get("accountValue", 0))
 
             return jsonify({
-                "Trading Equity": trading_equity,
-                "Vault Equity": vault_equity,
-                "Total Equity": "Dashboard Value"
+                "msg": f"Total Equity: {total_equity}"
             })
 
-        # ===== TRADE MODE =====
+        # ================= TRADE MODE =================
         elif action == "TRADE":
-            exchange = Exchange(Account.from_key(HL_SECRET_KEY), constants.MAINNET_API_URL)
-
             trades = data.get("trades", [])
             if not trades:
-                return jsonify({"msg": "No trade data found"})
+                return jsonify({"msg": "No trade data"})
 
             meta = info.meta()
             sz_decimals = {a["name"]: a["szDecimals"] for a in meta["universe"]}
 
-            output_logs = []
+            logs = []
 
             for trade in trades:
                 coin = trade[0]
                 side = trade[1]
-                order_diff_sz = float(trade[2])
+                usd_size = float(trade[2])
 
-                coin_decimals = sz_decimals.get(coin, 4)
-                final_sz = abs(round(order_diff_sz, coin_decimals))
+                if usd_size <= 0:
+                    continue
 
-                is_buy = True if side.lower() == "buy" else False
-                result = exchange.market_open(coin, is_buy, final_sz)
+                decimals = sz_decimals.get(coin, 4)
 
-                output_logs.append(f"{coin} {side}: {json.dumps(result)}")
+                is_buy = True if str(side).lower() == "buy" else False
+                size = round(abs(usd_size), decimals)
 
-            return jsonify({"msg": "\n".join(output_logs)})
+                result = exchange.market_open(coin, is_buy, size)
+
+                logs.append(f"{coin} {side}: {json.dumps(result)}")
+
+            return jsonify({"msg": "\n".join(logs)})
 
         else:
-            return jsonify({"msg": "Invalid Action"})
+            return jsonify({"msg": "Invalid action"})
 
     except Exception as e:
         return jsonify({"msg": f"System Error: {str(e)}"})

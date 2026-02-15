@@ -16,22 +16,27 @@ def handle_request():
         action = data.get("action")
         
         if action == "BALANCE":
-            # 1. ट्रेडिंग और मार्जिन डेटा
-            user_state = info.user_state(ACCOUNT_ADDRESS)
+            # 1. ट्रेडिंग अकाउंट (Perp/Margin) का बैलेंस
+            margin_data = info.user_state(ACCOUNT_ADDRESS)
             
-            # 2. स्पॉट वॉलेट का डेटा (सही तरीका)
-            spot_state = info.user_spot_state(ACCOUNT_ADDRESS)
-            
-            combined_report = {
-                "margin_and_trading": user_state,
-                "spot_wallet": spot_state
+            # 2. स्पॉट वॉलेट का बैलेंस (यही वो हिस्सा है जो एरर दे रहा था)
+            # सही फंक्शन 'spot_user_state' ही है, बस लाइब्रेरी वर्ज़न का फर्क है
+            try:
+                spot_data = info.spot_user_state(ACCOUNT_ADDRESS)
+            except:
+                spot_data = "Spot data not available"
+
+            combined = {
+                "account_info": margin_data,
+                "spot_info": spot_data
             }
             
-            return jsonify({"msg": json.dumps(combined_report)})
+            return jsonify({"msg": json.dumps(combined)})
             
         return jsonify({"msg": "Invalid Action"})
     except Exception as e:
-        return jsonify({"msg": f"System Error: {str(e)}"})
+        # अगर कोई भी एरर आएगा तो साफ़ दिखेगा कि कहाँ दिक्कत है
+        return jsonify({"msg": f"Final Error: {str(e)}"})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

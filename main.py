@@ -19,15 +19,57 @@ def handle_request():
 
         info = Info(constants.MAINNET_API_URL)
 
+        # ===== BALANCE MODE =====
         if action == "BALANCE":
             user_state = info.user_state(HL_ADDRESS)
 
-            # पूरा JSON return करेंगे
+            # Trading (Perp) equity
+            cross = user_state.get("crossMarginSummary", {})
+            trading_equity = float(cross.get("accountValue", 0.0))
+
+            # Vault equity (separate API)
+            vaults = info.user_vaults(HL_ADDRESS)
+            vault_equity = 0.0
+
+            for v in vaults:
+                vault_equity += float(v.get("equity", 0.0))
+
+            total_equity = trading_equity + vault_equity
+
             return jsonify({
-                "raw_user_state": user_state
+                "msg": f"Total Equity: {total_equity}"
             })
 
-        return jsonify({"msg": "Send action = BALANCE only for debug"})
+        # ===== TRADE MODE =====
+        elif action == "TRADE":
+            exchange = Exchange(Account.from_key(HL_SECRET_KEY), constants.MAINNET_API_URL)
+
+            trades = data.get("trades", [])
+            if not trades:
+                return jsonify({"msg": "No trade data found"})
+
+            meta = info.meta()
+            sz_decimals = {a["name"]: a["szDecimals"] for a in meta["universe"]}
+
+            output_logs = []
+
+            for trade in trades:
+                coin = trade[0]
+                side = trade[1]
+                order_diff_sz = float(trade[2])
+
+                coin_decimals = sz_decimals.get(coin, 4)
+                final_sz = abs(round(order_diff_sz, coin_decimals))
+
+                is_buy = True if side.lower() == "buy" else False
+                result = exchange.market_open(coin, is_buy, final_sz)
+
+                output_logs.append(f"{coin} {side}: {json.dumps(result)}")
+
+            return jsonify({"msg": "\n".join(output_logs)})
+
+        else:
+            return jsonify({"msg": "Invalid Action"})
 
     except Exception as e:
         return jsonify({"msg": f"System Error: {str(e)}"})

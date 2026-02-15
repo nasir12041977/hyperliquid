@@ -23,21 +23,20 @@ def handle_request():
         if action == "BALANCE":
             user_state = info.user_state(HL_ADDRESS)
 
-            # Trading (Perp) equity
+            # Trading Equity (Perp)
             cross = user_state.get("crossMarginSummary", {})
-            trading_equity = float(cross.get("accountValue", 0.0))
+            trading_equity = cross.get("accountValue", "0.0")
 
-            # Vault equity (separate API)
+            # Vault Equity
             vaults = info.user_vaults(HL_ADDRESS)
-            vault_equity = 0.0
-
-            for v in vaults:
-                vault_equity += float(v.get("equity", 0.0))
-
-            total_equity = trading_equity + vault_equity
+            vault_equity = "0.0"
+            if vaults and len(vaults) > 0:
+                vault_equity = vaults[0].get("equity", "0.0")
 
             return jsonify({
-                "msg": f"Total Equity: {total_equity}"
+                "Trading Equity": trading_equity,
+                "Vault Equity": vault_equity,
+                "Total Equity": "Dashboard Value"
             })
 
         # ===== TRADE MODE =====

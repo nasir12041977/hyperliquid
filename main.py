@@ -8,32 +8,36 @@ from hyperliquid.info import Info
 
 app = Flask(__name__)
 
-SECRET_KEY = os.getenv("HL_PRIVATE_KEY")
-ACCOUNT_ADDRESS = os.getenv("HL_WALLET_ADDRESS")
+HL_SECRET_KEY = os.getenv("HL_SECRET_KEY")
+HL_ADDRESS = os.getenv("HL_ADDRESS")
 
-info = Info(constants.MAINNET_API_URL)
-exchange = Exchange(Account.from_key(SECRET_KEY), constants.MAINNET_API_URL)
-
-@app.route('/trade', methods=['POST'])
+@app.route("/trade", methods=["POST"])
 def handle_request():
     try:
         data = request.json or {}
         action = data.get("action")
 
+        # Lazy init (Render-safe)
+        info = Info(constants.MAINNET_API_URL)
+        exchange = Exchange(Account.from_key(HL_SECRET_KEY), constants.MAINNET_API_URL)
+
+        # ===== BALANCE MODE =====
         if action == "BALANCE":
-            user_state = info.user_state(ACCOUNT_ADDRESS)
+            user_state = info.user_state(HL_ADDRESS)
             balance = user_state.get("marginSummary", {}).get("accountValue", "0.0")
             return jsonify({"msg": f"Total Balance: {balance}"})
 
+        # ===== TRADE MODE =====
         elif action == "TRADE":
             trades = data.get("trades", [])
             if not trades:
                 return jsonify({"msg": "No trade data found"})
 
             meta = info.meta()
-            sz_decimals = {asset["name"]: asset["szDecimals"] for asset in meta["universe"]}
+            sz_decimals = {a["name"]: a["szDecimals"] for a in meta["universe"]}
 
             output_logs = []
+
             for trade in trades:
                 coin = trade[0]
                 side = trade[1]
@@ -43,9 +47,9 @@ def handle_request():
                 final_sz = abs(round(order_diff_sz, coin_decimals))
 
                 is_buy = True if side.lower() == "buy" else False
-                order_result = exchange.market_open(coin, is_buy, final_sz)
+                result = exchange.market_open(coin, is_buy, final_sz)
 
-                output_logs.append(f"{coin} {side}: {json.dumps(order_result)}")
+                output_logs.append(f"{coin} {side}: {json.dumps(result)}")
 
             return jsonify({"msg": "\n".join(output_logs)})
 
@@ -57,4 +61,4 @@ def handle_request():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host="0.0.0.0", port=port)

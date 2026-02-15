@@ -25,15 +25,8 @@ def handle_request():
         if action == "BALANCE":
             user_state = info.user_state(HL_ADDRESS)
 
-            # Total Equity (correct field)
-            cross = user_state.get("crossMarginSummary", {})
-            margin = user_state.get("marginSummary", {})
-
-            total_equity = (
-                cross.get("accountValue")
-                or margin.get("totalCollateral")
-                or "0.0"
-            )
+            # ✅ सही Total Equity (official field)
+            total_equity = user_state.get("accountValue", "0.0")
 
             return jsonify({
                 "msg": f"Total Equity: {total_equity}"

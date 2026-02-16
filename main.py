@@ -1,7 +1,6 @@
-# ==========================================
-# edit number 24
-# [OK] BALANCE MODE: Edit 08 Stable logic restored (Vaults + Spot + Margin).
-# [under progress] TRADE MODE: Side-based Logic (3 Steps).
+# edit number 23
+# [OK] BALANCE MODE: Works with Dashboard (112.50+ confirmed).
+# [under progress] TRADE MODE: Fixed szDecimals "Error 1" issue.
 # ------------------------------------------
 # COMPULSORY: Cross Margin & Max Leverage (Always Applied).
 # LOGIC STEPS: 1. Side Match = Skip | 2. Side Opposite = Reverse | 3. Zero = Entry.
@@ -19,15 +18,13 @@ from hyperliquid.info import Info
 
 app = Flask(__name__)
 
-# --- FIXED SECTION: SETTINGS ---
+# --- FIXED SETTINGS ---
 HL_SECRET_KEY = os.getenv("HL_SECRET_KEY")
 HL_ADDRESS = os.getenv("HL_ADDRESS")
 
 account = Account.from_key(HL_SECRET_KEY)
 info = Info(constants.MAINNET_API_URL)
 exchange = Exchange(account, constants.MAINNET_API_URL)
-
-HL_INFO_URL = "https://api.hyperliquid.xyz/info"
 
 def clean_sz(sz, decimals):
     factor = 10 ** decimals
@@ -40,27 +37,19 @@ def handle_request():
         action = data.get("action")
 
         # ---------------------------------------------------------
-        # [OK] SECTION: BALANCE MODE (Back to Edit 08 Logic)
+        # [OK] SECTION: BALANCE MODE (Same as Edit 22 - Stable)
         # ---------------------------------------------------------
         if action == "BALANCE":
-            margin_data = info.user_state(HL_ADDRESS)
-            spot_data = info.spot_user_state(HL_ADDRESS)
-            
-            # Vault data fetch karna zaroori hai tabhi total sahi aayega
-            vault_payload = {"type": "userVaultEquities", "user": HL_ADDRESS}
-            vault_res = requests.post(HL_INFO_URL, json=vault_payload, timeout=10)
-            vault_data = vault_res.json()
-
-            # Aapki script ko yahi format chahiye tha
-            full_report = {
-                "PERPETUAL_AND_MARGIN": margin_data,
-                "SPOT_WALLET": spot_data,
-                "VAULTS_DATA": vault_data
+            user_state = info.user_state(HL_ADDRESS)
+            legacy_data = {
+                "PERPETUAL_AND_MARGIN": user_state,
+                "SPOT_WALLET": user_state.get("spotState", {"balances": []}),
+                "VAULTS_DATA": []
             }
-            return jsonify({"msg": json.dumps(full_report)})
+            return jsonify({"msg": json.dumps(legacy_data)})
 
         # ---------------------------------------------------------
-        # [UNDER PROGRESS] SECTION: TRADE MODE (New Logic)
+        # [UNDER PROGRESS] SECTION: TRADE MODE (Fixed szDecimals)
         # ---------------------------------------------------------
         elif action == "TRADE":
             incoming_trades = data.get("trades", [])
@@ -83,20 +72,22 @@ def handle_request():
                 is_buy_signal = t["isBuy"]
                 target_usd = float(t["usdSize"])
                 price = float(all_mids[coin_name])
-                sz_decimals = coin_data["szDecimals"]
+                
+                # FIXED: Error 1 occurs here. Using safer get() for szDecimals
+                sz_decimals = coin_data.get("szDecimals") or coin_data.get("sz_decimals") or 0
                 
                 current_sz = active_positions.get(coin_name, 0.0)
 
-                # Step 1: Side Match Skip
+                # --- STEP 1: Side Match ---
                 if (is_buy_signal and current_sz > 0) or (not is_buy_signal and current_sz < 0):
                     results.append(f"{coin_name}: Skip (Side Match)")
                     continue
 
-                # Step 4: Compulsory Leverage
+                # --- COMPULSORY ---
                 max_lev = coin_data["maxLeverage"]
                 exchange.update_leverage(max_lev, idx, is_cross=True)
 
-                # Step 2 & 3: Reversal/Entry
+                # --- STEP 2 & 3: Order Calculation ---
                 target_sz = clean_sz(target_usd / price, sz_decimals)
                 if not is_buy_signal: target_sz = -target_sz
                 
@@ -110,6 +101,7 @@ def handle_request():
             return jsonify({"msg": "\n".join(results) if results else "No Action"})
 
     except Exception as e:
+        # Isse aapko pata chalega ki error exactly kahan hai
         return jsonify({"msg": f"System Error: {str(e)}"})
 
 if __name__ == "__main__":

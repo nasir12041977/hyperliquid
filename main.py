@@ -1,5 +1,6 @@
-# edit number 22
-# [OK] BALANCE MODE: Fixed with 'PERPETUAL_AND_MARGIN' wrapper for script.
+# ==========================================
+# edit number 24
+# [OK] BALANCE MODE: Edit 08 Stable logic restored (Vaults + Spot + Margin).
 # [under progress] TRADE MODE: Side-based Logic (3 Steps).
 # ------------------------------------------
 # COMPULSORY: Cross Margin & Max Leverage (Always Applied).
@@ -9,6 +10,7 @@
 import os
 import json
 import math
+import requests
 from flask import Flask, request, jsonify
 from eth_account import Account
 from hyperliquid.utils import constants
@@ -17,13 +19,15 @@ from hyperliquid.info import Info
 
 app = Flask(__name__)
 
-# --- FIXED SETTINGS ---
+# --- FIXED SECTION: SETTINGS ---
 HL_SECRET_KEY = os.getenv("HL_SECRET_KEY")
 HL_ADDRESS = os.getenv("HL_ADDRESS")
 
 account = Account.from_key(HL_SECRET_KEY)
 info = Info(constants.MAINNET_API_URL)
 exchange = Exchange(account, constants.MAINNET_API_URL)
+
+HL_INFO_URL = "https://api.hyperliquid.xyz/info"
 
 def clean_sz(sz, decimals):
     factor = 10 ** decimals
@@ -36,23 +40,27 @@ def handle_request():
         action = data.get("action")
 
         # ---------------------------------------------------------
-        # [OK] SECTION: BALANCE MODE (Fixed Wrapper for Copy-Paste)
+        # [OK] SECTION: BALANCE MODE (Back to Edit 08 Logic)
         # ---------------------------------------------------------
         if action == "BALANCE":
-            user_state = info.user_state(HL_ADDRESS)
+            margin_data = info.user_state(HL_ADDRESS)
+            spot_data = info.spot_user_state(HL_ADDRESS)
             
-            # आपकी स्क्रिप्ट के हिसाब से डेटा को पुराने 'Layer' में लपेटना
-            legacy_data = {
-                "PERPETUAL_AND_MARGIN": user_state,
-                "SPOT_WALLET": user_state.get("spotState", {}),
-                "VAULTS_DATA": [] # Vaults data agar zaroorat ho toh yahan handle hoga
+            # Vault data fetch karna zaroori hai tabhi total sahi aayega
+            vault_payload = {"type": "userVaultEquities", "user": HL_ADDRESS}
+            vault_res = requests.post(HL_INFO_URL, json=vault_payload, timeout=10)
+            vault_data = vault_res.json()
+
+            # Aapki script ko yahi format chahiye tha
+            full_report = {
+                "PERPETUAL_AND_MARGIN": margin_data,
+                "SPOT_WALLET": spot_data,
+                "VAULTS_DATA": vault_data
             }
-            
-            # Script expects a JSON string inside 'msg'
-            return jsonify({"msg": json.dumps(legacy_data)})
+            return jsonify({"msg": json.dumps(full_report)})
 
         # ---------------------------------------------------------
-        # [UNDER PROGRESS] SECTION: TRADE MODE (3-Step Logic)
+        # [UNDER PROGRESS] SECTION: TRADE MODE (New Logic)
         # ---------------------------------------------------------
         elif action == "TRADE":
             incoming_trades = data.get("trades", [])
@@ -79,16 +87,16 @@ def handle_request():
                 
                 current_sz = active_positions.get(coin_name, 0.0)
 
-                # --- STEP 1: Side Match (Skip) ---
+                # Step 1: Side Match Skip
                 if (is_buy_signal and current_sz > 0) or (not is_buy_signal and current_sz < 0):
                     results.append(f"{coin_name}: Skip (Side Match)")
                     continue
 
-                # --- COMPULSORY ---
+                # Step 4: Compulsory Leverage
                 max_lev = coin_data["maxLeverage"]
                 exchange.update_leverage(max_lev, idx, is_cross=True)
 
-                # --- STEP 2 & 3: Reverse & Entry ---
+                # Step 2 & 3: Reversal/Entry
                 target_sz = clean_sz(target_usd / price, sz_decimals)
                 if not is_buy_signal: target_sz = -target_sz
                 

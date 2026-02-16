@@ -1,4 +1,4 @@
-# edit number 20
+# edit number 21
 # [OK] BALANCE MODE: worck sucsessful.
 # [under progress] TRADE MODE: Side-based Logic (3 Steps).
 # ------------------------------------------
@@ -36,12 +36,13 @@ def handle_request():
         action = data.get("action")
 
         # ---------------------------------------------------------
-        # [OK] SECTION: BALANCE MODE (Edit 08 base with JSON fix)
+        # [OK] SECTION: BALANCE MODE (Fixed for Script Compatibility)
         # ---------------------------------------------------------
         if action == "BALANCE":
+            # Script needs margin_data as a JSON string inside 'msg'
             margin_data = info.user_state(HL_ADDRESS)
-            # return jsonify(margin_data) सीधा भेज रहे हैं ताकि 'undefined' न आए
-            return jsonify(margin_data)
+            # Yahan json.dumps zaroori hai taaki aapki script JSON.parse(STATUSMSG) kar sake
+            return jsonify({"msg": json.dumps(margin_data)})
 
         # ---------------------------------------------------------
         # [UNDER PROGRESS] SECTION: TRADE MODE (3-Step Logic)
@@ -67,7 +68,7 @@ def handle_request():
                 is_buy_signal = t["isBuy"]
                 target_usd = float(t["usdSize"])
                 price = float(all_mids[coin_name])
-                sz_decimals = coin_data["sz_decimals"] if "sz_decimals" in coin_data else coin_data["szDecimals"]
+                sz_decimals = coin_data["szDecimals"]
                 
                 current_sz = active_positions.get(coin_name, 0.0)
 
@@ -76,7 +77,7 @@ def handle_request():
                     results.append(f"{coin_name}: Skip (Side Match)")
                     continue
 
-                # --- COMPULSORY: Max Lev & Cross ---
+                # --- COMPULSORY ---
                 max_lev = coin_data["maxLeverage"]
                 exchange.update_leverage(max_lev, idx, is_cross=True)
 
@@ -91,11 +92,10 @@ def handle_request():
                     res = exchange.order(idx, order_side, abs(diff_sz), price, {"limitFee": 0.04})
                     results.append(f"{coin_name}: {res['status']}")
 
-            # JSON Response fix to avoid "NO RESPONSE" error
+            # Trade response: logic steps result
             return jsonify({"msg": "\n".join(results) if results else "No Action"})
 
     except Exception as e:
-        # Error fix: Always return JSON
         return jsonify({"msg": f"System Error: {str(e)}"})
 
 if __name__ == "__main__":

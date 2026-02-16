@@ -1,7 +1,7 @@
 # ==========================================
-# EDIT NUMBER: 14
-# [OK] BALANCE MODE: Restored to Stable Version (छेड़छाड़ बंद).
-# [FIXED] TYPEERROR: Removed the faulty code that caused undefined error.
+# EDIT NUMBER: 15
+# [OK] BALANCE MODE: Fixed (Format restored to match Script expectations).
+# [FIXED] TYPEERROR: Script can now read 'marginSummary' properly.
 # [UNDER PROGRESS] TRADE MODE: Side-based Logic.
 # ------------------------------------------
 # COMPULSORY: Cross Margin & Max Leverage (Always Applied).
@@ -28,7 +28,6 @@ account = Account.from_key(HL_SECRET_KEY)
 info = Info(constants.MAINNET_API_URL)
 exchange = Exchange(account, constants.MAINNET_API_URL)
 
-# Precision Fix
 def clean_sz(sz, decimals):
     factor = 10 ** decimals
     return math.floor(sz * factor) / factor if sz > 0 else math.ceil(sz * factor) / factor
@@ -40,12 +39,12 @@ def handle_request():
         action = data.get("action")
 
         # ---------------------------------------------------------
-        # [OK] SECTION: BALANCE MODE (RESTORED TO STABLE)
+        # [OK] SECTION: BALANCE MODE (RESTORED TO ORIGINAL FORMAT)
         # ---------------------------------------------------------
         if action == "BALANCE":
             margin_data = info.user_state(HL_ADDRESS)
-            # वापस पुराना वाला सिंपल रिस्पॉन्स जो सही काम कर रहा था
-            return jsonify({"msg": json.dumps(margin_data)})
+            # Seedha margin_data bhej rahe hain bina extra strings ke
+            return jsonify(margin_data)
 
         # ---------------------------------------------------------
         # [UNDER PROGRESS] SECTION: TRADE MODE

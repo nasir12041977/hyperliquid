@@ -1,9 +1,9 @@
 # ==========================================
-# edit number 48
-# [OK] BALANCE MODE: Original & Locked (Nahi cheda gaya).
+# edit number 49
+# [OK] BALANCE MODE: Original & Locked (Syntax Fix).
 # [under progress] TRADE MODE: Validated Bulk Execution (Raw API Format).
 # ------------------------------------------
-# LOGIC: Using strict 5-significant-figures for price to fix 422 error.
+# LOGIC: Removed accidental text 'Matt' causing SyntaxError. No other changes.
 # ==========================================
 
 import os
@@ -30,14 +30,11 @@ def clean_sz(sz, decimals):
     factor = 10 ** decimals
     return math.floor(sz * factor) / factor if sz > 0 else math.ceil(sz * factor) / factor
 
-# [EXPERT LOGIC] Hyperliquid Price Rules: Only 5 Significant Figures allowed.
 def clean_px(px):
     px = float(px)
     if px == 0: return 0
-    # 5 significant figures calculation
     precision = 5 - int(math.floor(math.log10(abs(px)))) - 1
     rounded_px = round(px, precision)
-    # Double check for trailing zeros/format
     return float('{:g}'.format(float('{:.5g}'.format(rounded_px))))
 
 @app.route("/trade", methods=["POST"])
@@ -46,7 +43,7 @@ def handle_request():
         data = request.json
         action = data.get("action")
 
-        # --- 1. BALANCE MODE (Bilkul waisa hi jaisa pehle tha) ---
+        # --- 1. BALANCE MODE (Fixed Syntax - Back to Original) ---
         if action == "BALANCE":
             user_state = info.user_state(HL_ADDRESS)
             spot_state = info.spot_user_state(HL_ADDRESS)
@@ -54,13 +51,13 @@ def handle_request():
             vault_res = requests.post("https://api.hyperliquid.xyz/info", json=vault_payload, timeout=10)
             
             full_report = {
-                "PERPETUAL_AND_MARGIN": {"marginSummary": user_state.get("marginSummary", {"accountValue": "0.0" Matt})},
+                "PERPETUAL_AND_MARGIN": {"marginSummary": user_state.get("marginSummary", {"accountValue": "0.0"})},
                 "SPOT_WALLET": spot_state,
                 "VAULTS_DATA": vault_res.json()
             }
             return jsonify({"msg": json.dumps(full_report)})
 
-        # --- 2. TRADE MODE (The Professional Engine) ---
+        # --- 2. TRADE MODE (The Bulk Engine) ---
         elif action == "TRADE":
             incoming_trades = data.get("trades", [])
             user_state = info.user_state(HL_ADDRESS)
@@ -79,7 +76,6 @@ def handle_request():
             results = []
             processed_coins = set()
 
-            # A. PREPARING ORDERS (Logic for Reversal & Entry)
             for t in incoming_trades:
                 idx = int(t["index"])
                 coin_data = meta["universe"][idx]
@@ -103,7 +99,6 @@ def handle_request():
                     
                     limit_px = clean_px(price * (1.1 if diff_sz > 0 else 0.9))
                     
-                    # Exact dictionary format required by bulk_orders inside the SDK
                     bulk_params.append({
                         "coin": coin_name,
                         "is_buy": diff_sz > 0,
@@ -116,7 +111,6 @@ def handle_request():
                 else:
                     results.append(f"{coin_name}: RUNNING")
 
-            # B. CLEANUP (Closing coins not in list)
             for coin, szi in active_positions.items():
                 if coin not in processed_coins:
                     price = float(all_mids[coin])
@@ -132,9 +126,7 @@ def handle_request():
                     })
                     results.append(f"{coin}: CLOSING")
 
-            # C. THE FINAL PUSH (One Network Call)
             if bulk_params:
-                # SDK calls the underlying API with correctly formatted list
                 res = exchange.bulk_orders(bulk_params)
                 if res and res.get("status") == "ok":
                     return jsonify({"msg": "BULK_SUCCESS\n" + "\n".join(results)})

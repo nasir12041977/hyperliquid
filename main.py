@@ -1,10 +1,10 @@
 # ==========================================
-# edit number 39
+# edit number 41
 # [OK] BALANCE MODE: Stable.
-# [FIXED] System Error: 'limit_px' (Fixed Bulk Format).
-# [under progress] TRADE MODE: Master Bulk (Entry + Reversal + Cleanup).
+# [FIXED] Error 422: Precision Logic Correction (Significant Figures).
+# [under progress] TRADE MODE: Master Bulk (High Precision).
 # ------------------------------------------
-# LOGIC: Using exchange.order with multiple orders for stability.
+# LOGIC: Using string formatting for strict 5-significant figure price.
 # ==========================================
 
 import os
@@ -31,13 +31,16 @@ def clean_sz(sz, decimals):
     factor = 10 ** decimals
     return math.floor(sz * factor) / factor if sz > 0 else math.ceil(sz * factor) / factor
 
+# [LOGIC FIX] Hyperliquid strict 5-significant figures requirement
+def clean_px(px):
+    return float('{:g}'.format(float('{:.5g}'.format(px))))
+
 @app.route("/trade", methods=["POST"])
 def handle_request():
     try:
         data = request.json
         action = data.get("action")
 
-        # --- BALANCE MODE ---
         if action == "BALANCE":
             user_state = info.user_state(HL_ADDRESS)
             spot_state = info.spot_user_state(HL_ADDRESS)
@@ -51,7 +54,6 @@ def handle_request():
             }
             return jsonify({"msg": json.dumps(full_report)})
 
-        # --- TRADE MODE ---
         elif action == "TRADE":
             incoming_trades = data.get("trades", [])
             user_state = info.user_state(HL_ADDRESS)
@@ -70,7 +72,6 @@ def handle_request():
             results = []
             processed_coins = set()
 
-            # 1. STEP: Entry & Reversal Logic
             for t in incoming_trades:
                 idx = int(t["index"])
                 coin_data = meta["universe"][idx]
@@ -78,7 +79,7 @@ def handle_request():
                 is_buy = t["isBuy"]
                 target_usd = float(t["usdSize"])
                 price = float(all_mids[coin_name])
-                sz_decimals = int(coin_data["sz_decimals"] if "sz_decimals" in coin_data else coin_data["szDecimals"])
+                sz_decimals = int(coin_data.get("szDecimals", coin_data.get("sz_decimals", 0)))
                 
                 processed_coins.add(coin_name)
                 current_sz = active_positions.get(coin_name, 0.0)
@@ -92,41 +93,35 @@ def handle_request():
                     try: exchange.update_leverage(int(coin_data["maxLeverage"]), coin_name, is_cross=True)
                     except: pass
                     
-                    # Manual Slippage Calculation
-                    limit_px = price * (1.1 if diff_sz > 0 else 0.9)
+                    # 10% Slippage with strict 5-sig-fig precision
+                    limit_px = clean_px(price * (1.1 if diff_sz > 0 else 0.9))
                     
                     orders_list.append({
                         "coin": coin_name,
                         "is_buy": diff_sz > 0,
                         "sz": abs(diff_sz),
-                        "limit_px": clean_sz(limit_px, 5), # Fixed price precision
-                        "order_type": {"limit": {"tif": "ioc"}}
+                        "limit_px": limit_px
                     })
                     results.append(f"{coin_name}: QUEUED")
                 else:
                     results.append(f"{coin_name}: RUNNING")
 
-            # 2. STEP: Cleanup (Not in list = Close)
+            # Cleanup Logic
             for coin, szi in active_positions.items():
                 if coin not in processed_coins:
                     price = float(all_mids[coin])
-                    limit_px = price * (1.1 if szi < 0 else 0.9)
-                    
+                    limit_px = clean_px(price * (1.1 if szi < 0 else 0.9))
                     orders_list.append({
                         "coin": coin,
                         "is_buy": szi < 0,
                         "sz": abs(szi),
-                        "limit_px": clean_sz(limit_px, 5),
-                        "order_type": {"limit": {"tif": "ioc"}}
+                        "limit_px": limit_px
                     })
                     results.append(f"{coin}: CLOSING")
 
-            # 3. FINAL STEP: Execute all at once
             if orders_list:
-                # Exchange order function can take a list of orders directly
-                for order in orders_list:
-                    exchange.order(order["coin"], order["is_buy"], order["sz"], order["limit_px"], order["order_type"])
-                
+                for o in orders_list:
+                    exchange.order(o["coin"], o["is_buy"], o["sz"], o["limit_px"], {"limit": {"tif": "ioc"}})
                 return jsonify({"msg": "DONE\n" + "\n".join(results)})
 
             return jsonify({"msg": "\n".join(results) if results else "No Action"})

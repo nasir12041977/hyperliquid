@@ -1,10 +1,9 @@
 # ==========================================
-# edit number 41
-# [OK] BALANCE MODE: Stable.
-# [FIXED] Error 422: Precision Logic Correction (Significant Figures).
-# [under progress] TRADE MODE: Master Bulk (High Precision).
+# edit number 44
+# [OK] BALANCE MODE: Original & Untouched (No changes at all).
+# [OK] TRADE MODE: Reliable Market Execution (Cleanup + Reversal).
 # ------------------------------------------
-# LOGIC: Using string formatting for strict 5-significant figure price.
+# LOGIC: Balance path is locked. Trade path uses market_open for stability.
 # ==========================================
 
 import os
@@ -31,16 +30,13 @@ def clean_sz(sz, decimals):
     factor = 10 ** decimals
     return math.floor(sz * factor) / factor if sz > 0 else math.ceil(sz * factor) / factor
 
-# [LOGIC FIX] Hyperliquid strict 5-significant figures requirement
-def clean_px(px):
-    return float('{:g}'.format(float('{:.5g}'.format(px))))
-
 @app.route("/trade", methods=["POST"])
 def handle_request():
     try:
         data = request.json
         action = data.get("action")
 
+        # --- 1. BALANCE MODE (Exactly as it was - DO NOT TOUCH) ---
         if action == "BALANCE":
             user_state = info.user_state(HL_ADDRESS)
             spot_state = info.spot_user_state(HL_ADDRESS)
@@ -54,6 +50,7 @@ def handle_request():
             }
             return jsonify({"msg": json.dumps(full_report)})
 
+        # --- 2. TRADE MODE (Only working section) ---
         elif action == "TRADE":
             incoming_trades = data.get("trades", [])
             user_state = info.user_state(HL_ADDRESS)
@@ -68,10 +65,10 @@ def handle_request():
                 if coin and float(szi) != 0:
                     active_positions[coin] = float(szi)
 
-            orders_list = []
             results = []
             processed_coins = set()
 
+            # A. Entry aur Reversal
             for t in incoming_trades:
                 idx = int(t["index"])
                 coin_data = meta["universe"][idx]
@@ -93,38 +90,25 @@ def handle_request():
                     try: exchange.update_leverage(int(coin_data["maxLeverage"]), coin_name, is_cross=True)
                     except: pass
                     
-                    # 10% Slippage with strict 5-sig-fig precision
-                    limit_px = clean_px(price * (1.1 if diff_sz > 0 else 0.9))
+                    res = exchange.market_open(coin_name, diff_sz > 0, abs(diff_sz), slippage=0.1)
                     
-                    orders_list.append({
-                        "coin": coin_name,
-                        "is_buy": diff_sz > 0,
-                        "sz": abs(diff_sz),
-                        "limit_px": limit_px
-                    })
-                    results.append(f"{coin_name}: QUEUED")
+                    if res.get("status") == "ok":
+                        results.append(f"{coin_name}: SYNCED")
+                    else:
+                        results.append(f"{coin_name}: ERROR")
                 else:
                     results.append(f"{coin_name}: RUNNING")
 
-            # Cleanup Logic
+            # B. Cleanup (List mein nahi hai to band karo)
             for coin, szi in active_positions.items():
                 if coin not in processed_coins:
-                    price = float(all_mids[coin])
-                    limit_px = clean_px(price * (1.1 if szi < 0 else 0.9))
-                    orders_list.append({
-                        "coin": coin,
-                        "is_buy": szi < 0,
-                        "sz": abs(szi),
-                        "limit_px": limit_px
-                    })
-                    results.append(f"{coin}: CLOSING")
+                    res = exchange.market_close(coin, slippage=0.1)
+                    if res.get("status") == "ok":
+                        results.append(f"{coin}: CLOSED")
+                    else:
+                        results.append(f"{coin}: CLOSE_ERR")
 
-            if orders_list:
-                for o in orders_list:
-                    exchange.order(o["coin"], o["is_buy"], o["sz"], o["limit_px"], {"limit": {"tif": "ioc"}})
-                return jsonify({"msg": "DONE\n" + "\n".join(results)})
-
-            return jsonify({"msg": "\n".join(results) if results else "No Action"})
+            return jsonify({"msg": "DONE\n" + "\n".join(results) if results else "No Action"})
 
     except Exception as e:
         return jsonify({"msg": f"System Error: {str(e)}"})

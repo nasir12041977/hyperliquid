@@ -1,4 +1,4 @@
-# edit number 18
+# edit number 20
 # [OK] BALANCE MODE: worck sucsessful.
 # [under progress] TRADE MODE: Side-based Logic (3 Steps).
 # ------------------------------------------
@@ -17,7 +17,7 @@ from hyperliquid.info import Info
 
 app = Flask(__name__)
 
-# --- अनिवार्य सेटिंग्स (Fixed Settings) ---
+# --- FIXED SETTINGS ---
 HL_SECRET_KEY = os.getenv("HL_SECRET_KEY")
 HL_ADDRESS = os.getenv("HL_ADDRESS")
 
@@ -25,7 +25,6 @@ account = Account.from_key(HL_SECRET_KEY)
 info = Info(constants.MAINNET_API_URL)
 exchange = Exchange(account, constants.MAINNET_API_URL)
 
-# Precision Fix: डेसीमल की सटीकता के लिए
 def clean_sz(sz, decimals):
     factor = 10 ** decimals
     return math.floor(sz * factor) / factor if sz > 0 else math.ceil(sz * factor) / factor
@@ -37,15 +36,15 @@ def handle_request():
         action = data.get("action")
 
         # ---------------------------------------------------------
-        # [OK] SECTION: BALANCE MODE (Edit 08 Stable Version - Fixed Format)
+        # [OK] SECTION: BALANCE MODE (Edit 08 base with JSON fix)
         # ---------------------------------------------------------
         if action == "BALANCE":
             margin_data = info.user_state(HL_ADDRESS)
-            # यहाँ json.dumps हटाकर सीधा डेटा भेज रहे हैं ताकि 'marginSummary' वाला एरर न आए
+            # return jsonify(margin_data) सीधा भेज रहे हैं ताकि 'undefined' न आए
             return jsonify(margin_data)
 
         # ---------------------------------------------------------
-        # [UNDER PROGRESS] SECTION: TRADE MODE (New 3-Step Logic)
+        # [UNDER PROGRESS] SECTION: TRADE MODE (3-Step Logic)
         # ---------------------------------------------------------
         elif action == "TRADE":
             incoming_trades = data.get("trades", [])
@@ -68,20 +67,20 @@ def handle_request():
                 is_buy_signal = t["isBuy"]
                 target_usd = float(t["usdSize"])
                 price = float(all_mids[coin_name])
-                sz_decimals = coin_data["szDecimals"]
+                sz_decimals = coin_data["sz_decimals"] if "sz_decimals" in coin_data else coin_data["szDecimals"]
                 
                 current_sz = active_positions.get(coin_name, 0.0)
 
-                # --- चरण 1: साइड मैच (Skip Logic) ---
+                # --- STEP 1: Side Match (Skip) ---
                 if (is_buy_signal and current_sz > 0) or (not is_buy_signal and current_sz < 0):
                     results.append(f"{coin_name}: Skip (Side Match)")
                     continue
 
-                # --- अनिवार्य सेटिंग (Compulsory) ---
+                # --- COMPULSORY: Max Lev & Cross ---
                 max_lev = coin_data["maxLeverage"]
                 exchange.update_leverage(max_lev, idx, is_cross=True)
 
-                # --- चरण 2: साइड अपोजिट (Reverse) & चरण 3: फ्रेश एंट्री ---
+                # --- STEP 2 & 3: Reverse & Entry ---
                 target_sz = clean_sz(target_usd / price, sz_decimals)
                 if not is_buy_signal: target_sz = -target_sz
                 
@@ -92,9 +91,11 @@ def handle_request():
                     res = exchange.order(idx, order_side, abs(diff_sz), price, {"limitFee": 0.04})
                     results.append(f"{coin_name}: {res['status']}")
 
+            # JSON Response fix to avoid "NO RESPONSE" error
             return jsonify({"msg": "\n".join(results) if results else "No Action"})
 
     except Exception as e:
+        # Error fix: Always return JSON
         return jsonify({"msg": f"System Error: {str(e)}"})
 
 if __name__ == "__main__":

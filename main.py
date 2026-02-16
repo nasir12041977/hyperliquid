@@ -1,9 +1,10 @@
-# edit number 30
-# [OK] BALANCE MODE: Stable & Isolated (112.50+).
-# [under progress] TRADE MODE: Final Fix using market_open (No more Error 1).
+# ==========================================
+# edit number 32
+# [OK] BALANCE MODE: Stable (Dashboard confirmed).
+# [under progress] TRADE MODE: Option B (Reversal) ONLY. No Cleanup.
 # ------------------------------------------
-# COMPULSORY: Cross Margin & Max Leverage.
-# LOGIC STEPS: 1. Side Match = Skip | 2. Reverse/Entry.
+# COMPULSORY: Cross Margin & Max Leverage (Always Applied).
+# LOGIC STEPS: 1. Target Size Calculation | 2. Side Match = Skip | 3. Diff-based Reversal.
 # ==========================================
 
 import os
@@ -38,7 +39,7 @@ def handle_request():
         action = data.get("action")
 
         # ---------------------------------------------------------
-        # [BALANCE MODE] - NO CHANGES HERE (WORKING)
+        # [OK] SECTION: BALANCE MODE
         # ---------------------------------------------------------
         if action == "BALANCE":
             user_state = info.user_state(HL_ADDRESS)
@@ -57,7 +58,7 @@ def handle_request():
             return jsonify({"msg": json.dumps(full_report)})
 
         # ---------------------------------------------------------
-        # [TRADE MODE] - REWRITTEN BASED ON SDK DOCUMENTATION
+        # [UNDER PROGRESS] SECTION: TRADE MODE (Option B - Targeted Only)
         # ---------------------------------------------------------
         elif action == "TRADE":
             incoming_trades = data.get("trades", [])
@@ -67,7 +68,8 @@ def handle_request():
             meta = info.meta()
             all_mids = info.all_mids()
             
-            active_positions = {p["position"]["coin"]: float(p["position"]["szi"]) 
+            # Maujuda positions ka map (Sirf data fetch karne ke liye)
+            active_positions = {p["position"]["coin"]: float(p["szi"]) 
                                for p in user_state.get("assetPositions", []) 
                                if float(p["position"]["szi"]) != 0}
 
@@ -83,31 +85,38 @@ def handle_request():
                 
                 current_sz = active_positions.get(coin_name, 0.0)
 
-                # 1. Side Match Skip (Same as your logic)
+                # --- STEP 1: Side Match (Skip) ---
                 if (is_buy and current_sz > 0) or (not is_buy and current_sz < 0):
                     results.append(f"{coin_name}: RUNNING")
                     continue
 
-                # 2. Update Leverage (Fixed syntax)
+                # --- STEP 2: Leverage & Margin ---
                 try:
                     exchange.update_leverage(int(coin_data["maxLeverage"]), coin_name, is_cross=True)
                 except:
                     pass
 
-                # 3. Market Order using market_open (Safe & Tested in Edit 56)
-                sz = clean_sz(target_usd / price, sz_decimals)
+                # --- STEP 3: OPTION B (Diff-based Reversal) ---
+                target_sz = clean_sz(target_usd / price, sz_decimals)
+                if not is_buy: target_sz = -target_sz
                 
-                # Minimum size check (Hyperliquid needs ~$10 minimum)
-                if (sz * price) < 10.1:
-                    sz = clean_sz(10.1 / price, sz_decimals)
+                # Formula: Diff = Target - Current
+                # Agar -11 short hai aur +17 long chahiye, toh diff +28 banega.
+                diff_sz = clean_sz(target_sz - current_sz, sz_decimals)
 
-                # market_open use kar rahe hain jo direct SDK function hai
-                res = exchange.market_open(coin_name, is_buy, sz, slippage=0.05)
-                
-                if res["status"] == "ok":
-                    results.append(f"{coin_name}: ENTRY")
+                if abs(diff_sz * price) >= 10.0:
+                    order_side = diff_sz > 0
+                    res = exchange.market_open(coin_name, order_side, abs(diff_sz), slippage=0.05)
+                    
+                    if res["status"] == "ok":
+                        results.append(f"{coin_name}: SYNCED")
+                    else:
+                        results.append(f"{coin_name}: ERROR")
                 else:
-                    results.append(f"{coin_name}: ERROR")
+                    results.append(f"{coin_name}: SIZE_TOO_SMALL")
+
+            # YAHAN SE CLEANUP WALA CHUTIYAPA HATA DIYA HAI.
+            # Sirf upar waale loop ke coins hi touch honge.
 
             return jsonify({"msg": "\n".join(results) if results else "No Action"})
 

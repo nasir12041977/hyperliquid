@@ -1,5 +1,5 @@
-# edit number 21
-# [OK] BALANCE MODE: worck sucsessful.
+# edit number 22
+# [OK] BALANCE MODE: Fixed with 'PERPETUAL_AND_MARGIN' wrapper for script.
 # [under progress] TRADE MODE: Side-based Logic (3 Steps).
 # ------------------------------------------
 # COMPULSORY: Cross Margin & Max Leverage (Always Applied).
@@ -36,13 +36,20 @@ def handle_request():
         action = data.get("action")
 
         # ---------------------------------------------------------
-        # [OK] SECTION: BALANCE MODE (Fixed for Script Compatibility)
+        # [OK] SECTION: BALANCE MODE (Fixed Wrapper for Copy-Paste)
         # ---------------------------------------------------------
         if action == "BALANCE":
-            # Script needs margin_data as a JSON string inside 'msg'
-            margin_data = info.user_state(HL_ADDRESS)
-            # Yahan json.dumps zaroori hai taaki aapki script JSON.parse(STATUSMSG) kar sake
-            return jsonify({"msg": json.dumps(margin_data)})
+            user_state = info.user_state(HL_ADDRESS)
+            
+            # आपकी स्क्रिप्ट के हिसाब से डेटा को पुराने 'Layer' में लपेटना
+            legacy_data = {
+                "PERPETUAL_AND_MARGIN": user_state,
+                "SPOT_WALLET": user_state.get("spotState", {}),
+                "VAULTS_DATA": [] # Vaults data agar zaroorat ho toh yahan handle hoga
+            }
+            
+            # Script expects a JSON string inside 'msg'
+            return jsonify({"msg": json.dumps(legacy_data)})
 
         # ---------------------------------------------------------
         # [UNDER PROGRESS] SECTION: TRADE MODE (3-Step Logic)
@@ -92,7 +99,6 @@ def handle_request():
                     res = exchange.order(idx, order_side, abs(diff_sz), price, {"limitFee": 0.04})
                     results.append(f"{coin_name}: {res['status']}")
 
-            # Trade response: logic steps result
             return jsonify({"msg": "\n".join(results) if results else "No Action"})
 
     except Exception as e:

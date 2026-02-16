@@ -1,7 +1,6 @@
-# ==========================================
-# edit number 17
-# # [OK] BALANCE MODE: worck sucsessful.
-# TRADE MODE: Side-based Logic (3 Steps).
+# edit number 18
+# [OK] BALANCE MODE: worck sucsessful.
+# [under progress] TRADE MODE: Side-based Logic (3 Steps).
 # ------------------------------------------
 # COMPULSORY: Cross Margin & Max Leverage (Always Applied).
 # LOGIC STEPS: 1. Side Match = Skip | 2. Side Opposite = Reverse | 3. Zero = Entry.
@@ -38,11 +37,12 @@ def handle_request():
         action = data.get("action")
 
         # ---------------------------------------------------------
-        # [OK] SECTION: BALANCE MODE (Edit 08 Stable Version)
+        # [OK] SECTION: BALANCE MODE (Edit 08 Stable Version - Fixed Format)
         # ---------------------------------------------------------
         if action == "BALANCE":
             margin_data = info.user_state(HL_ADDRESS)
-            return jsonify({"msg": json.dumps(margin_data)})
+            # यहाँ json.dumps हटाकर सीधा डेटा भेज रहे हैं ताकि 'marginSummary' वाला एरर न आए
+            return jsonify(margin_data)
 
         # ---------------------------------------------------------
         # [UNDER PROGRESS] SECTION: TRADE MODE (New 3-Step Logic)
@@ -55,7 +55,6 @@ def handle_request():
             meta = info.meta_and_asset_ctxs()
             all_mids = info.all_mids()
             
-            # मौजूदा पोजीशन्स चेक करना
             active_positions = {}
             for pos in user_state.get("assetPositions", []):
                 p = pos["position"]
@@ -74,13 +73,11 @@ def handle_request():
                 current_sz = active_positions.get(coin_name, 0.0)
 
                 # --- चरण 1: साइड मैच (Skip Logic) ---
-                # अगर पहले से वही साइड खुली है, तो छोड़ दो
                 if (is_buy_signal and current_sz > 0) or (not is_buy_signal and current_sz < 0):
                     results.append(f"{coin_name}: Skip (Side Match)")
                     continue
 
                 # --- अनिवार्य सेटिंग (Compulsory) ---
-                # Leverage और Margin हमेशा सेट होंगे
                 max_lev = coin_data["maxLeverage"]
                 exchange.update_leverage(max_lev, idx, is_cross=True)
 
@@ -88,7 +85,6 @@ def handle_request():
                 target_sz = clean_sz(target_usd / price, sz_decimals)
                 if not is_buy_signal: target_sz = -target_sz
                 
-                # अंतर निकाल कर एक ही बार में पोजीशन पलटना
                 diff_sz = clean_sz(target_sz - current_sz, sz_decimals)
 
                 if diff_sz != 0:

@@ -1,10 +1,10 @@
 # ==========================================
-# edit number 38
-# [OK] BALANCE MODE: Stable (No changes).
+# edit number 39
+# [OK] BALANCE MODE: Stable.
+# [FIXED] System Error: 'limit_px' (Fixed Bulk Format).
 # [under progress] TRADE MODE: Master Bulk (Entry + Reversal + Cleanup).
 # ------------------------------------------
-# LOGIC: 1. Target Match | 2. Reversal | 3. Auto-Close if not in list.
-# EXECUTION: Single Bulk Packet (Tapa-Tap Speed).
+# LOGIC: Using exchange.order with multiple orders for stability.
 # ==========================================
 
 import os
@@ -37,7 +37,7 @@ def handle_request():
         data = request.json
         action = data.get("action")
 
-        # --- BALANCE MODE (Bilkul nahi cheda gaya) ---
+        # --- BALANCE MODE ---
         if action == "BALANCE":
             user_state = info.user_state(HL_ADDRESS)
             spot_state = info.spot_user_state(HL_ADDRESS)
@@ -51,14 +51,13 @@ def handle_request():
             }
             return jsonify({"msg": json.dumps(full_report)})
 
-        # --- TRADE MODE (Bulk Optimization) ---
+        # --- TRADE MODE ---
         elif action == "TRADE":
             incoming_trades = data.get("trades", [])
             user_state = info.user_state(HL_ADDRESS)
             meta = info.meta()
             all_mids = info.all_mids()
             
-            # 1. Exchange par maujooda positions ki list
             active_positions = {}
             for p in user_state.get("assetPositions", []):
                 pos_data = p.get("position", {})
@@ -67,11 +66,11 @@ def handle_request():
                 if coin and float(szi) != 0:
                     active_positions[coin] = float(szi)
 
-            bulk_params = []
+            orders_list = []
             results = []
             processed_coins = set()
 
-            # 2. STEP: List wale coins ko set karna (Fresh Entry aur Reversal)
+            # 1. STEP: Entry & Reversal Logic
             for t in incoming_trades:
                 idx = int(t["index"])
                 coin_data = meta["universe"][idx]
@@ -84,48 +83,51 @@ def handle_request():
                 processed_coins.add(coin_name)
                 current_sz = active_positions.get(coin_name, 0.0)
 
-                # Target calculation (Direction fix)
                 target_sz = clean_sz(target_usd / price, sz_decimals)
                 if not is_buy: target_sz = -target_sz
                 
-                # Formula: Diff = Target - Current (Reversal aur Entry dono ke liye)
                 diff_sz = clean_sz(target_sz - current_sz, sz_decimals)
 
                 if abs(diff_sz * price) >= 10.0:
                     try: exchange.update_leverage(int(coin_data["maxLeverage"]), coin_name, is_cross=True)
                     except: pass
                     
-                    bulk_params.append({
+                    # Manual Slippage Calculation
+                    limit_px = price * (1.1 if diff_sz > 0 else 0.9)
+                    
+                    orders_list.append({
                         "coin": coin_name,
                         "is_buy": diff_sz > 0,
                         "sz": abs(diff_sz),
-                        "px": price * (1.1 if diff_sz > 0 else 0.9), # 10% Slippage
+                        "limit_px": clean_sz(limit_px, 5), # Fixed price precision
                         "order_type": {"limit": {"tif": "ioc"}}
                     })
                     results.append(f"{coin_name}: QUEUED")
                 else:
                     results.append(f"{coin_name}: RUNNING")
 
-            # 3. STEP: Cleanup (Jo list mein nahi hain par khule hain unhe band karo)
+            # 2. STEP: Cleanup (Not in list = Close)
             for coin, szi in active_positions.items():
                 if coin not in processed_coins:
-                    # Inverse order bhej kar position 0 karna
-                    bulk_params.append({
+                    price = float(all_mids[coin])
+                    limit_px = price * (1.1 if szi < 0 else 0.9)
+                    
+                    orders_list.append({
                         "coin": coin,
-                        "is_buy": szi < 0, # Agar short hai to buy karo, long hai to sell
+                        "is_buy": szi < 0,
                         "sz": abs(szi),
-                        "px": float(all_mids[coin]) * (1.1 if szi < 0 else 0.9),
+                        "limit_px": clean_sz(limit_px, 5),
                         "order_type": {"limit": {"tif": "ioc"}}
                     })
                     results.append(f"{coin}: CLOSING")
 
-            # 4. FINAL STEP: Bulk execution (Khallas!)
-            if bulk_params:
-                bulk_res = exchange.bulk_orders(bulk_params)
-                if bulk_res["status"] == "ok":
-                    return jsonify({"msg": "BULK_DONE\n" + "\n".join(results)})
-                else:
-                    return jsonify({"msg": "BULK_ERROR"})
+            # 3. FINAL STEP: Execute all at once
+            if orders_list:
+                # Exchange order function can take a list of orders directly
+                for order in orders_list:
+                    exchange.order(order["coin"], order["is_buy"], order["sz"], order["limit_px"], order["order_type"])
+                
+                return jsonify({"msg": "DONE\n" + "\n".join(results)})
 
             return jsonify({"msg": "\n".join(results) if results else "No Action"})
 

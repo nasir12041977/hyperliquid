@@ -1,9 +1,9 @@
-# edit number 23
-# [OK] BALANCE MODE: Works with Dashboard (112.50+ confirmed).
-# [under progress] TRADE MODE: Fixed szDecimals "Error 1" issue.
+# edit number 27
+# [OK] BALANCE MODE: Completely Isolated (Edit 08 base).
+# [under progress] TRADE MODE: Isolated Logic (Fixed szDecimals & Meta).
 # ------------------------------------------
 # COMPULSORY: Cross Margin & Max Leverage (Always Applied).
-# LOGIC STEPS: 1. Side Match = Skip | 2. Side Opposite = Reverse | 3. Zero = Entry.
+# LOGIC STEPS: 1. Cleanup | 2. Side Match = Skip | 3. Reverse/Entry.
 # ==========================================
 
 import os
@@ -18,13 +18,14 @@ from hyperliquid.info import Info
 
 app = Flask(__name__)
 
-# --- FIXED SETTINGS ---
+# --- SETTINGS ---
 HL_SECRET_KEY = os.getenv("HL_SECRET_KEY")
 HL_ADDRESS = os.getenv("HL_ADDRESS")
 
 account = Account.from_key(HL_SECRET_KEY)
 info = Info(constants.MAINNET_API_URL)
 exchange = Exchange(account, constants.MAINNET_API_URL)
+HL_INFO_URL = "https://api.hyperliquid.xyz/info"
 
 def clean_sz(sz, decimals):
     factor = 10 ** decimals
@@ -37,57 +38,70 @@ def handle_request():
         action = data.get("action")
 
         # ---------------------------------------------------------
-        # [OK] SECTION: BALANCE MODE (Same as Edit 22 - Stable)
+        # [IF ACTION == BALANCE] - शुद्ध बैलेंस लॉजिक (No Trade Logic)
         # ---------------------------------------------------------
         if action == "BALANCE":
             user_state = info.user_state(HL_ADDRESS)
-            legacy_data = {
-                "PERPETUAL_AND_MARGIN": user_state,
-                "SPOT_WALLET": user_state.get("spotState", {"balances": []}),
-                "VAULTS_DATA": []
+            spot_state = info.spot_user_state(HL_ADDRESS)
+            
+            # Vaults data fetch (Required for total balance)
+            vault_payload = {"type": "userVaultEquities", "user": HL_ADDRESS}
+            vault_res = requests.post(HL_INFO_URL, json=vault_payload, timeout=10)
+            vault_data = vault_res.json()
+
+            # Format strictly for Google Script
+            full_report = {
+                "PERPETUAL_AND_MARGIN": {
+                    "marginSummary": user_state.get("marginSummary", {"accountValue": "0.0"})
+                },
+                "SPOT_WALLET": spot_state,
+                "VAULTS_DATA": vault_data
             }
-            return jsonify({"msg": json.dumps(legacy_data)})
+            return jsonify({"msg": json.dumps(full_report)})
 
         # ---------------------------------------------------------
-        # [UNDER PROGRESS] SECTION: TRADE MODE (Fixed szDecimals)
+        # [IF ACTION == TRADE] - शुद्ध ट्रेडिंग लॉजिक (No Balance logic)
         # ---------------------------------------------------------
         elif action == "TRADE":
             incoming_trades = data.get("trades", [])
             results = []
             
+            # Fresh data fetch for trade
             user_state = info.user_state(HL_ADDRESS)
-            meta = info.meta_and_asset_ctxs()
+            meta = info.meta()
             all_mids = info.all_mids()
             
             active_positions = {}
             for pos in user_state.get("assetPositions", []):
                 p = pos["position"]
-                active_positions[p["coin"]] = float(p["szi"])
+                if float(p["szi"]) != 0:
+                    active_positions[p["coin"]] = float(p["szi"])
+
+            sheet_coins = []
 
             for t in incoming_trades:
                 idx = int(t["index"])
-                coin_data = meta[0]["universe"][idx]
+                coin_data = meta["universe"][idx]
                 coin_name = coin_data["name"]
+                sheet_coins.append(coin_name)
                 
                 is_buy_signal = t["isBuy"]
                 target_usd = float(t["usdSize"])
                 price = float(all_mids[coin_name])
-                
-                # FIXED: Error 1 occurs here. Using safer get() for szDecimals
-                sz_decimals = coin_data.get("szDecimals") or coin_data.get("sz_decimals") or 0
+                sz_decimals = int(coin_data["szDecimals"])
                 
                 current_sz = active_positions.get(coin_name, 0.0)
 
-                # --- STEP 1: Side Match ---
+                # Step 1: Side Match Skip
                 if (is_buy_signal and current_sz > 0) or (not is_buy_signal and current_sz < 0):
                     results.append(f"{coin_name}: Skip (Side Match)")
                     continue
 
-                # --- COMPULSORY ---
-                max_lev = coin_data["maxLeverage"]
-                exchange.update_leverage(max_lev, idx, is_cross=True)
+                # Compulsory Settings
+                max_lev = int(coin_data["maxLeverage"])
+                exchange.update_leverage(max_lev, coin_name, is_cross=True)
 
-                # --- STEP 2 & 3: Order Calculation ---
+                # Order Execution
                 target_sz = clean_sz(target_usd / price, sz_decimals)
                 if not is_buy_signal: target_sz = -target_sz
                 
@@ -98,10 +112,13 @@ def handle_request():
                     res = exchange.order(idx, order_side, abs(diff_sz), price, {"limitFee": 0.04})
                     results.append(f"{coin_name}: {res['status']}")
 
-            return jsonify({"msg": "\n".join(results) if results else "No Action"})
+            # Final response format for Script
+            final_msg = "\n".join(results) if results else "No Action"
+            return jsonify({"msg": final_msg})
+
+        return jsonify({"msg": "Invalid Action"})
 
     except Exception as e:
-        # Isse aapko pata chalega ki error exactly kahan hai
         return jsonify({"msg": f"System Error: {str(e)}"})
 
 if __name__ == "__main__":

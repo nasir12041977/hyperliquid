@@ -1,9 +1,10 @@
 # ==========================================
-# edit number 46
-# [OK] BALANCE MODE: Original & Locked (No changes).
-# [under progress] TRADE MODE: Strict Bulk Processing (One-shot execution).
+# edit number 47
+# [OK] BALANCE MODE: Original & Locked.
+# [FIXED] System Error: 'reduce_only' (Missing key in bulk params).
+# [under progress] TRADE MODE: Master Bulk (Corrected JSON structure).
 # ------------------------------------------
-# LOGIC: Preparing a single batch of all orders and sending via bulk_orders.
+# LOGIC: Added 'reduce_only': False to all bulk orders to allow entries and reversals.
 # ==========================================
 
 import os
@@ -30,7 +31,6 @@ def clean_sz(sz, decimals):
     factor = 10 ** decimals
     return math.floor(sz * factor) / factor if sz > 0 else math.ceil(sz * factor) / factor
 
-# Hyperliquid ke liye price format fix karne ka logic
 def clean_px(px):
     return float('{:g}'.format(float('{:.5g}'.format(px))))
 
@@ -40,7 +40,7 @@ def handle_request():
         data = request.json
         action = data.get("action")
 
-        # --- 1. BALANCE MODE (Original - Unchanged) ---
+        # --- 1. BALANCE MODE (Bilkul waisa hi hai) ---
         if action == "BALANCE":
             user_state = info.user_state(HL_ADDRESS)
             spot_state = info.spot_user_state(HL_ADDRESS)
@@ -54,14 +54,13 @@ def handle_request():
             }
             return jsonify({"msg": json.dumps(full_report)})
 
-        # --- 2. TRADE MODE (The Bulk Engine) ---
+        # --- 2. TRADE MODE ---
         elif action == "TRADE":
             incoming_trades = data.get("trades", [])
             user_state = info.user_state(HL_ADDRESS)
             meta = info.meta()
             all_mids = info.all_mids()
             
-            # Maujooda positions ki map taiyar karna
             active_positions = {}
             for p in user_state.get("assetPositions", []):
                 pos_data = p.get("position", {})
@@ -74,7 +73,7 @@ def handle_request():
             results = []
             processed_coins = set()
 
-            # A. ENTRY aur REVERSAL Orders taiyar karna
+            # A. ENTRY aur REVERSAL
             for t in incoming_trades:
                 idx = int(t["index"])
                 coin_data = meta["universe"][idx]
@@ -96,21 +95,22 @@ def handle_request():
                     try: exchange.update_leverage(int(coin_data["maxLeverage"]), coin_name, is_cross=True)
                     except: pass
                     
-                    # 10% Slippage Price
                     limit_px = clean_px(price * (1.1 if diff_sz > 0 else 0.9))
                     
+                    # [FIXED]: Added 'reduce_only' key
                     bulk_params.append({
                         "coin": coin_name,
                         "is_buy": diff_sz > 0,
                         "sz": abs(diff_sz),
                         "limit_px": limit_px,
-                        "order_type": {"limit": {"tif": "ioc"}}
+                        "order_type": {"limit": {"tif": "ioc"}},
+                        "reduce_only": False
                     })
                     results.append(f"{coin_name}: QUEUED")
                 else:
                     results.append(f"{coin_name}: RUNNING")
 
-            # B. CLEANUP (Jo list mein nahi hai unhe band karne ke orders)
+            # B. CLEANUP
             for coin, szi in active_positions.items():
                 if coin not in processed_coins:
                     price = float(all_mids[coin])
@@ -121,13 +121,13 @@ def handle_request():
                         "is_buy": szi < 0,
                         "sz": abs(szi),
                         "limit_px": limit_px,
-                        "order_type": {"limit": {"tif": "ioc"}}
+                        "order_type": {"limit": {"tif": "ioc"}},
+                        "reduce_only": True  # Closing ke liye True rakh sakte hain
                     })
                     results.append(f"{coin}: CLOSING")
 
-            # C. EK SAATH EXECUTION (Sab orders ek bundle mein)
+            # C. EXECUTION
             if bulk_params:
-                # bulk_orders list ko ek saath Hyperliquid par bhej raha hai
                 res = exchange.bulk_orders(bulk_params)
                 if res and res.get("status") == "ok":
                     return jsonify({"msg": "BULK_SUCCESS\n" + "\n".join(results)})

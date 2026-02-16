@@ -1,8 +1,7 @@
 # ==========================================
-# EDIT NUMBER: 15
-# [OK] BALANCE MODE: Fixed (Format restored to match Script expectations).
-# [FIXED] TYPEERROR: Script can now read 'marginSummary' properly.
-# [UNDER PROGRESS] TRADE MODE: Side-based Logic.
+# edit number 17
+# # [OK] BALANCE MODE: worck sucsessful.
+# TRADE MODE: Side-based Logic (3 Steps).
 # ------------------------------------------
 # COMPULSORY: Cross Margin & Max Leverage (Always Applied).
 # LOGIC STEPS: 1. Side Match = Skip | 2. Side Opposite = Reverse | 3. Zero = Entry.
@@ -11,7 +10,6 @@
 import os
 import json
 import math
-import requests
 from flask import Flask, request, jsonify
 from eth_account import Account
 from hyperliquid.utils import constants
@@ -20,7 +18,7 @@ from hyperliquid.info import Info
 
 app = Flask(__name__)
 
-# --- FIXED SETTINGS ---
+# --- अनिवार्य सेटिंग्स (Fixed Settings) ---
 HL_SECRET_KEY = os.getenv("HL_SECRET_KEY")
 HL_ADDRESS = os.getenv("HL_ADDRESS")
 
@@ -28,6 +26,7 @@ account = Account.from_key(HL_SECRET_KEY)
 info = Info(constants.MAINNET_API_URL)
 exchange = Exchange(account, constants.MAINNET_API_URL)
 
+# Precision Fix: डेसीमल की सटीकता के लिए
 def clean_sz(sz, decimals):
     factor = 10 ** decimals
     return math.floor(sz * factor) / factor if sz > 0 else math.ceil(sz * factor) / factor
@@ -39,15 +38,14 @@ def handle_request():
         action = data.get("action")
 
         # ---------------------------------------------------------
-        # [OK] SECTION: BALANCE MODE (RESTORED TO ORIGINAL FORMAT)
+        # [OK] SECTION: BALANCE MODE (Edit 08 Stable Version)
         # ---------------------------------------------------------
         if action == "BALANCE":
             margin_data = info.user_state(HL_ADDRESS)
-            # Seedha margin_data bhej rahe hain bina extra strings ke
-            return jsonify(margin_data)
+            return jsonify({"msg": json.dumps(margin_data)})
 
         # ---------------------------------------------------------
-        # [UNDER PROGRESS] SECTION: TRADE MODE
+        # [UNDER PROGRESS] SECTION: TRADE MODE (New 3-Step Logic)
         # ---------------------------------------------------------
         elif action == "TRADE":
             incoming_trades = data.get("trades", [])
@@ -57,6 +55,7 @@ def handle_request():
             meta = info.meta_and_asset_ctxs()
             all_mids = info.all_mids()
             
+            # मौजूदा पोजीशन्स चेक करना
             active_positions = {}
             for pos in user_state.get("assetPositions", []):
                 p = pos["position"]
@@ -74,19 +73,22 @@ def handle_request():
                 
                 current_sz = active_positions.get(coin_name, 0.0)
 
-                # --- STEP 1: Side Match (Skip) ---
+                # --- चरण 1: साइड मैच (Skip Logic) ---
+                # अगर पहले से वही साइड खुली है, तो छोड़ दो
                 if (is_buy_signal and current_sz > 0) or (not is_buy_signal and current_sz < 0):
                     results.append(f"{coin_name}: Skip (Side Match)")
                     continue
 
-                # --- COMPULSORY SETTINGS ---
+                # --- अनिवार्य सेटिंग (Compulsory) ---
+                # Leverage और Margin हमेशा सेट होंगे
                 max_lev = coin_data["maxLeverage"]
                 exchange.update_leverage(max_lev, idx, is_cross=True)
 
-                # --- STEP 2 & 3: Reverse & Entry ---
+                # --- चरण 2: साइड अपोजिट (Reverse) & चरण 3: फ्रेश एंट्री ---
                 target_sz = clean_sz(target_usd / price, sz_decimals)
                 if not is_buy_signal: target_sz = -target_sz
                 
+                # अंतर निकाल कर एक ही बार में पोजीशन पलटना
                 diff_sz = clean_sz(target_sz - current_sz, sz_decimals)
 
                 if diff_sz != 0:

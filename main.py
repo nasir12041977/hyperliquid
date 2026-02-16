@@ -1,14 +1,11 @@
 # ==========================================
-# EDIT NUMBER: 12
-# [OK] BALANCE MODE: Fixed & Stable.
-# [FIXED] ERROR 192: Proper szDecimals handling and strict rounding.
+# EDIT NUMBER: 14
+# [OK] BALANCE MODE: Restored to Stable Version (छेड़छाड़ बंद).
+# [FIXED] TYPEERROR: Removed the faulty code that caused undefined error.
 # [UNDER PROGRESS] TRADE MODE: Side-based Logic.
 # ------------------------------------------
-# COMPULSORY: Cross Margin & Max Leverage (Always Applied for every trade).
-# LOGIC STEPS:
-# 1. Side Match = Skip (सिर्फ साइड देखो, क्वांटिटी नहीं).
-# 2. Side Opposite = Reverse (पुरानी काटो, नई शुरू करो).
-# 3. Zero Position = Fresh Entry (सीधा नया ट्रेड).
+# COMPULSORY: Cross Margin & Max Leverage (Always Applied).
+# LOGIC STEPS: 1. Side Match = Skip | 2. Side Opposite = Reverse | 3. Zero = Entry.
 # ==========================================
 
 import os
@@ -31,7 +28,7 @@ account = Account.from_key(HL_SECRET_KEY)
 info = Info(constants.MAINNET_API_URL)
 exchange = Exchange(account, constants.MAINNET_API_URL)
 
-# Precision Fix: डेसीमल की गड़बड़ दूर करने के लिए
+# Precision Fix
 def clean_sz(sz, decimals):
     factor = 10 ** decimals
     return math.floor(sz * factor) / factor if sz > 0 else math.ceil(sz * factor) / factor
@@ -43,10 +40,11 @@ def handle_request():
         action = data.get("action")
 
         # ---------------------------------------------------------
-        # [FIXED] SECTION: BALANCE MODE
+        # [OK] SECTION: BALANCE MODE (RESTORED TO STABLE)
         # ---------------------------------------------------------
         if action == "BALANCE":
             margin_data = info.user_state(HL_ADDRESS)
+            # वापस पुराना वाला सिंपल रिस्पॉन्स जो सही काम कर रहा था
             return jsonify({"msg": json.dumps(margin_data)})
 
         # ---------------------------------------------------------
@@ -60,7 +58,6 @@ def handle_request():
             meta = info.meta_and_asset_ctxs()
             all_mids = info.all_mids()
             
-            # मौजूदा पोजीशन्स का मैप
             active_positions = {}
             for pos in user_state.get("assetPositions", []):
                 p = pos["position"]
@@ -79,24 +76,18 @@ def handle_request():
                 current_sz = active_positions.get(coin_name, 0.0)
 
                 # --- STEP 1: Side Match (Skip) ---
-                # अगर साइड एक ही है, तो छोड़ दो।
                 if (is_buy_signal and current_sz > 0) or (not is_buy_signal and current_sz < 0):
                     results.append(f"{coin_name}: Skip (Side Match)")
                     continue
 
                 # --- COMPULSORY SETTINGS ---
-                # Max Leverage & Cross Margin हमेशा लागू होंगे।
                 max_lev = coin_data["maxLeverage"]
                 exchange.update_leverage(max_lev, idx, is_cross=True)
 
-                # --- STEP 2: Side Opposite (Reverse) & STEP 3: Zero Entry ---
-                # अगर साइड अलग है तो पलटो, अगर खाली है तो नया ट्रेड लो।
-                
-                # नई क्वांटिटी का हिसाब (Target Quantity)
+                # --- STEP 2 & 3: Reverse & Entry ---
                 target_sz = clean_sz(target_usd / price, sz_decimals)
                 if not is_buy_signal: target_sz = -target_sz
-
-                # फाइनल अंतर (जितने का ऑर्डर मारना है)
+                
                 diff_sz = clean_sz(target_sz - current_sz, sz_decimals)
 
                 if diff_sz != 0:

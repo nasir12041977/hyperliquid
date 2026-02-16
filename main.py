@@ -1,6 +1,6 @@
-# edit number 27
-# [OK] BALANCE MODE: Completely Isolated (Edit 08 base).
-# [under progress] TRADE MODE: Isolated Logic (Fixed szDecimals & Meta).
+# edit number 28
+# [OK] BALANCE MODE: Stable (Edit 08 base).
+# [under progress] TRADE MODE: Fixed Leverage Index Error (Error 1).
 # ------------------------------------------
 # COMPULSORY: Cross Margin & Max Leverage (Always Applied).
 # LOGIC STEPS: 1. Cleanup | 2. Side Match = Skip | 3. Reverse/Entry.
@@ -38,18 +38,16 @@ def handle_request():
         action = data.get("action")
 
         # ---------------------------------------------------------
-        # [IF ACTION == BALANCE] - शुद्ध बैलेंस लॉजिक (No Trade Logic)
+        # [IF ACTION == BALANCE] - (Works Correct)
         # ---------------------------------------------------------
         if action == "BALANCE":
             user_state = info.user_state(HL_ADDRESS)
             spot_state = info.spot_user_state(HL_ADDRESS)
             
-            # Vaults data fetch (Required for total balance)
             vault_payload = {"type": "userVaultEquities", "user": HL_ADDRESS}
             vault_res = requests.post(HL_INFO_URL, json=vault_payload, timeout=10)
             vault_data = vault_res.json()
 
-            # Format strictly for Google Script
             full_report = {
                 "PERPETUAL_AND_MARGIN": {
                     "marginSummary": user_state.get("marginSummary", {"accountValue": "0.0"})
@@ -60,13 +58,12 @@ def handle_request():
             return jsonify({"msg": json.dumps(full_report)})
 
         # ---------------------------------------------------------
-        # [IF ACTION == TRADE] - शुद्ध ट्रेडिंग लॉजिक (No Balance logic)
+        # [IF ACTION == TRADE] - (Fixed Leverage Parameter)
         # ---------------------------------------------------------
         elif action == "TRADE":
             incoming_trades = data.get("trades", [])
             results = []
             
-            # Fresh data fetch for trade
             user_state = info.user_state(HL_ADDRESS)
             meta = info.meta()
             all_mids = info.all_mids()
@@ -77,13 +74,11 @@ def handle_request():
                 if float(p["szi"]) != 0:
                     active_positions[p["coin"]] = float(p["szi"])
 
-            sheet_coins = []
-
             for t in incoming_trades:
+                # 'index' ko sahi tarah se use karna
                 idx = int(t["index"])
                 coin_data = meta["universe"][idx]
                 coin_name = coin_data["name"]
-                sheet_coins.append(coin_name)
                 
                 is_buy_signal = t["isBuy"]
                 target_usd = float(t["usdSize"])
@@ -97,11 +92,11 @@ def handle_request():
                     results.append(f"{coin_name}: Skip (Side Match)")
                     continue
 
-                # Compulsory Settings
+                # FIX: Leverage update needs 'idx' (integer), not 'coin_name'
                 max_lev = int(coin_data["maxLeverage"])
-                exchange.update_leverage(max_lev, coin_name, is_cross=True)
+                exchange.update_leverage(max_lev, idx, is_cross=True)
 
-                # Order Execution
+                # Order logic
                 target_sz = clean_sz(target_usd / price, sz_decimals)
                 if not is_buy_signal: target_sz = -target_sz
                 
@@ -112,13 +107,10 @@ def handle_request():
                     res = exchange.order(idx, order_side, abs(diff_sz), price, {"limitFee": 0.04})
                     results.append(f"{coin_name}: {res['status']}")
 
-            # Final response format for Script
-            final_msg = "\n".join(results) if results else "No Action"
-            return jsonify({"msg": final_msg})
-
-        return jsonify({"msg": "Invalid Action"})
+            return jsonify({"msg": "\n".join(results) if results else "No Action"})
 
     except Exception as e:
+        # Error message detail mein dikhega
         return jsonify({"msg": f"System Error: {str(e)}"})
 
 if __name__ == "__main__":

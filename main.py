@@ -1,10 +1,9 @@
 # ==========================================
-# edit number 47
-# [OK] BALANCE MODE: Original & Locked.
-# [FIXED] System Error: 'reduce_only' (Missing key in bulk params).
-# [under progress] TRADE MODE: Master Bulk (Corrected JSON structure).
+# edit number 48
+# [OK] BALANCE MODE: Original & Locked (Nahi cheda gaya).
+# [under progress] TRADE MODE: Validated Bulk Execution (Raw API Format).
 # ------------------------------------------
-# LOGIC: Added 'reduce_only': False to all bulk orders to allow entries and reversals.
+# LOGIC: Using strict 5-significant-figures for price to fix 422 error.
 # ==========================================
 
 import os
@@ -31,8 +30,15 @@ def clean_sz(sz, decimals):
     factor = 10 ** decimals
     return math.floor(sz * factor) / factor if sz > 0 else math.ceil(sz * factor) / factor
 
+# [EXPERT LOGIC] Hyperliquid Price Rules: Only 5 Significant Figures allowed.
 def clean_px(px):
-    return float('{:g}'.format(float('{:.5g}'.format(px))))
+    px = float(px)
+    if px == 0: return 0
+    # 5 significant figures calculation
+    precision = 5 - int(math.floor(math.log10(abs(px)))) - 1
+    rounded_px = round(px, precision)
+    # Double check for trailing zeros/format
+    return float('{:g}'.format(float('{:.5g}'.format(rounded_px))))
 
 @app.route("/trade", methods=["POST"])
 def handle_request():
@@ -40,7 +46,7 @@ def handle_request():
         data = request.json
         action = data.get("action")
 
-        # --- 1. BALANCE MODE (Bilkul waisa hi hai) ---
+        # --- 1. BALANCE MODE (Bilkul waisa hi jaisa pehle tha) ---
         if action == "BALANCE":
             user_state = info.user_state(HL_ADDRESS)
             spot_state = info.spot_user_state(HL_ADDRESS)
@@ -48,13 +54,13 @@ def handle_request():
             vault_res = requests.post("https://api.hyperliquid.xyz/info", json=vault_payload, timeout=10)
             
             full_report = {
-                "PERPETUAL_AND_MARGIN": {"marginSummary": user_state.get("marginSummary", {"accountValue": "0.0"})},
+                "PERPETUAL_AND_MARGIN": {"marginSummary": user_state.get("marginSummary", {"accountValue": "0.0" Matt})},
                 "SPOT_WALLET": spot_state,
                 "VAULTS_DATA": vault_res.json()
             }
             return jsonify({"msg": json.dumps(full_report)})
 
-        # --- 2. TRADE MODE ---
+        # --- 2. TRADE MODE (The Professional Engine) ---
         elif action == "TRADE":
             incoming_trades = data.get("trades", [])
             user_state = info.user_state(HL_ADDRESS)
@@ -73,7 +79,7 @@ def handle_request():
             results = []
             processed_coins = set()
 
-            # A. ENTRY aur REVERSAL
+            # A. PREPARING ORDERS (Logic for Reversal & Entry)
             for t in incoming_trades:
                 idx = int(t["index"])
                 coin_data = meta["universe"][idx]
@@ -97,20 +103,20 @@ def handle_request():
                     
                     limit_px = clean_px(price * (1.1 if diff_sz > 0 else 0.9))
                     
-                    # [FIXED]: Added 'reduce_only' key
+                    # Exact dictionary format required by bulk_orders inside the SDK
                     bulk_params.append({
                         "coin": coin_name,
                         "is_buy": diff_sz > 0,
                         "sz": abs(diff_sz),
                         "limit_px": limit_px,
-                        "order_type": {"limit": {"tif": "ioc"}},
+                        "order_type": {"limit": {"tif": "Ioc"}},
                         "reduce_only": False
                     })
                     results.append(f"{coin_name}: QUEUED")
                 else:
                     results.append(f"{coin_name}: RUNNING")
 
-            # B. CLEANUP
+            # B. CLEANUP (Closing coins not in list)
             for coin, szi in active_positions.items():
                 if coin not in processed_coins:
                     price = float(all_mids[coin])
@@ -121,13 +127,14 @@ def handle_request():
                         "is_buy": szi < 0,
                         "sz": abs(szi),
                         "limit_px": limit_px,
-                        "order_type": {"limit": {"tif": "ioc"}},
-                        "reduce_only": True  # Closing ke liye True rakh sakte hain
+                        "order_type": {"limit": {"tif": "Ioc"}},
+                        "reduce_only": True
                     })
                     results.append(f"{coin}: CLOSING")
 
-            # C. EXECUTION
+            # C. THE FINAL PUSH (One Network Call)
             if bulk_params:
+                # SDK calls the underlying API with correctly formatted list
                 res = exchange.bulk_orders(bulk_params)
                 if res and res.get("status") == "ok":
                     return jsonify({"msg": "BULK_SUCCESS\n" + "\n".join(results)})

@@ -1,9 +1,9 @@
 # ==========================================
-# edit number 44
-# [OK] BALANCE MODE: Original & Untouched (No changes at all).
-# [OK] TRADE MODE: Reliable Market Execution (Cleanup + Reversal).
+# edit number 46
+# [OK] BALANCE MODE: Original & Locked (No changes).
+# [under progress] TRADE MODE: Strict Bulk Processing (One-shot execution).
 # ------------------------------------------
-# LOGIC: Balance path is locked. Trade path uses market_open for stability.
+# LOGIC: Preparing a single batch of all orders and sending via bulk_orders.
 # ==========================================
 
 import os
@@ -30,13 +30,17 @@ def clean_sz(sz, decimals):
     factor = 10 ** decimals
     return math.floor(sz * factor) / factor if sz > 0 else math.ceil(sz * factor) / factor
 
+# Hyperliquid ke liye price format fix karne ka logic
+def clean_px(px):
+    return float('{:g}'.format(float('{:.5g}'.format(px))))
+
 @app.route("/trade", methods=["POST"])
 def handle_request():
     try:
         data = request.json
         action = data.get("action")
 
-        # --- 1. BALANCE MODE (Exactly as it was - DO NOT TOUCH) ---
+        # --- 1. BALANCE MODE (Original - Unchanged) ---
         if action == "BALANCE":
             user_state = info.user_state(HL_ADDRESS)
             spot_state = info.spot_user_state(HL_ADDRESS)
@@ -50,13 +54,14 @@ def handle_request():
             }
             return jsonify({"msg": json.dumps(full_report)})
 
-        # --- 2. TRADE MODE (Only working section) ---
+        # --- 2. TRADE MODE (The Bulk Engine) ---
         elif action == "TRADE":
             incoming_trades = data.get("trades", [])
             user_state = info.user_state(HL_ADDRESS)
             meta = info.meta()
             all_mids = info.all_mids()
             
+            # Maujooda positions ki map taiyar karna
             active_positions = {}
             for p in user_state.get("assetPositions", []):
                 pos_data = p.get("position", {})
@@ -65,10 +70,11 @@ def handle_request():
                 if coin and float(szi) != 0:
                     active_positions[coin] = float(szi)
 
+            bulk_params = []
             results = []
             processed_coins = set()
 
-            # A. Entry aur Reversal
+            # A. ENTRY aur REVERSAL Orders taiyar karna
             for t in incoming_trades:
                 idx = int(t["index"])
                 coin_data = meta["universe"][idx]
@@ -90,25 +96,45 @@ def handle_request():
                     try: exchange.update_leverage(int(coin_data["maxLeverage"]), coin_name, is_cross=True)
                     except: pass
                     
-                    res = exchange.market_open(coin_name, diff_sz > 0, abs(diff_sz), slippage=0.1)
+                    # 10% Slippage Price
+                    limit_px = clean_px(price * (1.1 if diff_sz > 0 else 0.9))
                     
-                    if res.get("status") == "ok":
-                        results.append(f"{coin_name}: SYNCED")
-                    else:
-                        results.append(f"{coin_name}: ERROR")
+                    bulk_params.append({
+                        "coin": coin_name,
+                        "is_buy": diff_sz > 0,
+                        "sz": abs(diff_sz),
+                        "limit_px": limit_px,
+                        "order_type": {"limit": {"tif": "ioc"}}
+                    })
+                    results.append(f"{coin_name}: QUEUED")
                 else:
                     results.append(f"{coin_name}: RUNNING")
 
-            # B. Cleanup (List mein nahi hai to band karo)
+            # B. CLEANUP (Jo list mein nahi hai unhe band karne ke orders)
             for coin, szi in active_positions.items():
                 if coin not in processed_coins:
-                    res = exchange.market_close(coin, slippage=0.1)
-                    if res.get("status") == "ok":
-                        results.append(f"{coin}: CLOSED")
-                    else:
-                        results.append(f"{coin}: CLOSE_ERR")
+                    price = float(all_mids[coin])
+                    limit_px = clean_px(price * (1.1 if szi < 0 else 0.9))
+                    
+                    bulk_params.append({
+                        "coin": coin,
+                        "is_buy": szi < 0,
+                        "sz": abs(szi),
+                        "limit_px": limit_px,
+                        "order_type": {"limit": {"tif": "ioc"}}
+                    })
+                    results.append(f"{coin}: CLOSING")
 
-            return jsonify({"msg": "DONE\n" + "\n".join(results) if results else "No Action"})
+            # C. EK SAATH EXECUTION (Sab orders ek bundle mein)
+            if bulk_params:
+                # bulk_orders list ko ek saath Hyperliquid par bhej raha hai
+                res = exchange.bulk_orders(bulk_params)
+                if res and res.get("status") == "ok":
+                    return jsonify({"msg": "BULK_SUCCESS\n" + "\n".join(results)})
+                else:
+                    return jsonify({"msg": f"BULK_ERROR: {str(res)}"})
+
+            return jsonify({"msg": "\n".join(results) if results else "No Action"})
 
     except Exception as e:
         return jsonify({"msg": f"System Error: {str(e)}"})

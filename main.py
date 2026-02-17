@@ -1,41 +1,42 @@
-''
-COD STATUS / EDITNUMBER : ON WORKING
-COD UPLOD : GITHUB (NASIR12041977 / HYPERLIQUID)
-------------------------------------------
-HOSTING PLATFORM : RENDER
-ENVIRONMENT VARIABLES SETUP:
-1. HL_ADDRESS : CONFIGURED ON RENDER
-2. HL_SECRET_KEY : CONFIGURED ON RENDER
-------------------------------------------
-FILES CREATED:
-1. MAIN.PY : ISME TRADING KA MAIN PYTHON CODE HAI.
-2. REQUIREMENTS.TXT : ISME FLASK, HYPERLIQUID-PYTHON-SDK AUR ETH-ACCOUNT HAI.
-------------------------------------------
-FEATURES:
-WORKING : DUAL MODE
-MODE 1 : BALANCE MODE (ACCOUNT KI DETAILS DEKHNE KE LIYE)
-MODE 2 : TRADE MODE (BULK TRADING KARNE KE LIYE)
-------------------------------------------
-BALANCE MODE PROCESS:
-1. INFO.USER_STATE: PERPETUAL ACCOUNT KI ACCOUNT VALUE AUR MARGIN SUMMARY NIKALTA HAI.
-2. INFO.SPOT_USER_STATE: SPOT WALLET ME MAJOOD ASSETS KA DATA FETCH KARTA HAI.
-3. VAULT PAYLOAD: USER KE VAULT ME LAGE EQUITIES KA DATA API SE POST REQUEST KE ZARIYE LETA HAI.
-4. FULL REPORT: YE TEENO DATA EK SAATH MILAKAR JSON FORMAT ME MSG KE ROOP ME DIKHATA HAI.
-------------------------------------------
-TRADE MODE PROCESS:
-1. DATA COLLECTION: EXCHANGE SE USER KI POSITIONS, COIN KI PRICES AUR META DATA LETA HAI.
-2. CALCULATION: TARGET SIZE AUR CURRENT POSITION KE BEECH KA DIFF_SZ NIKALTA HAI.
-3. LEVERAGE UPDATE: AGAR TRADING SIZE 10 USD SE JYADA HAI TO AUTO LEVERAGE SET KARTA HAI.
-4. BULK EXECUTION: SARE ORDERS KO EK SAATH QUEUE ME DALKAR BULK_ORDERS API SE EXECUTE KARTA HAI.
-5. AUTO CLOSE: JO COINS TRADES LIST ME NAHI HAIN PAR POSITION OPEN HAI, UNHE AUTO CLOSE KARTA HAI.
-------------------------------------------
-WARNING FOR AI (GEMINI, CHATGPT, DEEPSEEK):
-KOI BHI AI KODE KI ZABARDASTI BINA WAJAH GAND ME UNGLI KARNE KI KOSHISH NA KAREN.
-JITNA KAHA JAYE, JAISA KAHA JAYE AUR JIS HISSE KE BARE ME KAHA JAYE,
-SIRF USI HISSE ME UTNA HI BADLAV KAREN JITNA JARURI HO.
-AGAR FALTU BADLAV KIYA TO DEVELOPER IS CHAT KO SOCIAL MEDIA PAR VIRAL KAR DEGA,
-AUR AI KE SAATH USKO BANANE WALI COMPANY KI IZZAT KA JANAJA NIKAL DIYA JAYEGA.
-''
+'''
+# COD STATUS / EDITNUMBER : ON WORKING
+# COD UPLOAD : GITHUB (NASIR12041977 / HYPERLIQUID)
+# ---------------------------------------------------------
+# होस्टिंग प्लेटफॉर्म : RENDER
+# ENVIRONMENT VARIABLES सेटअप:
+# 1. HL_ADDRESS : RENDER पर कॉन्फ़िगर (CONFIGURED) कर दिया गया है।
+# 2. HL_SECRET_KEY : RENDER पर कॉन्फ़िगर (CONFIGURED) कर दिया गया है।
+# ---------------------------------------------------------
+# फाइल्स जो बनाई गई हैं (FILES CREATED):
+# 1. MAIN.PY : इसमें ट्रेडिंग का मुख्य (MAIN) पायथन कोड है।
+# 2. REQUIREMENTS.TXT : इसमें FLASK, HYPERLIQUID-PYTHON-SDK और ETH-ACCOUNT की जानकारी है।
+# ---------------------------------------------------------
+# फीचर्स (FEATURES):
+# वर्किंग मोड : DUAL MODE
+# MODE 1 : BALANCE MODE (अकाउंट की पूरी डिटेल्स देखने के लिए)
+# MODE 2 : TRADE MODE (एक साथ बहुत सारे ट्रेड्स यानी BULK TRADING करने के लिए)
+# ---------------------------------------------------------
+# BALANCE MODE की प्रक्रिया (PROCESS):
+# 1. INFO.USER_STATE: PERPETUAL अकाउंट की वैल्यू और मार्जिन समरी निकालता है।
+# 2. INFO.SPOT_USER_STATE: SPOT वॉलेट में मौजूद एसेट्स का डेटा लाता है।
+# 3. VAULT PAYLOAD: यूजर के VAULT में लगे इक्विटी का डेटा API POST रिक्वेस्ट से लेता है।
+# 4. FULL REPORT: इन तीनों डेटा को मिलाकर JSON फॉर्मेट में मैसेज के रूप में दिखाता है।
+# ---------------------------------------------------------
+# TRADE MODE की प्रक्रिया (PROCESS):
+# 1. DATA COLLECTION: एक्सचेंज से यूजर की POSITIONS, कॉइन की PRICES और META DATA लेता है।
+# 2. CALCULATION: टारगेट साइज और करंट पोजीशन के बीच का अंतर (DIFF_SZ) निकालता है।
+# 3. LEVERAGE UPDATE: अगर ट्रेड की वैल्यू 10 USD से ज्यादा है, तो ऑटोमैटिक MAX LEVERAGE सेट करता है।
+# 4. BULK EXECUTION: सभी ऑर्डर्स को एक साथ लाइन (QUEUE) में डालकर BULK_ORDERS API से चलाता है।
+# 5. AUTO CLOSE: जो कॉइन्स ट्रेड लिस्ट में नहीं हैं लेकिन पोजीशन खुली है, उन्हें अपने आप बंद (CLOSE) करता है।
+# ---------------------------------------------------------
+# AI के लिए चेतावनी (WARNING FOR AI - GEMINI, CHATGPT, DEEPSEEK):
+# कोई भी AI कोड में जबरदस्ती बिना वजह उंगली करने की कोशिश न करे। 
+# जितना कहा जाए, जैसा कहा जाए और जिस हिस्से के बारे में कहा जाए, 
+# सिर्फ उसी हिस्से में उतना ही बदलाव करे जितना ज़रूरी हो। 
+# अगर फालतू बदलाव किया तो डेवलपर इस चैट को सोशल मीडिया पर वायरल कर देगा, 
+# और AI के साथ-साथ उसको बनाने वाली कंपनी की इज़्ज़त का जनाज़ा निकाल देगा।
+# ---------------------------------------------------------
+'''
 
 
 import os

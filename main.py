@@ -1,5 +1,5 @@
 '''
-COD STATUS / EDITNUMBER : 7
+COD STATUS / EDITNUMBER : 8
 COD UPLOAD : GITHUB (NASIR12041977 / HYPERLIQUID)
 ---------------------------------------------------------
 होस्टिंग प्लेटफॉर्म : RENDER
@@ -65,9 +65,10 @@ def clean_sz(sz, decimals):
 def clean_px(px):
     if not px or px == 0: return 0
     px = float(px)
+    # Hyperliquid requires prices to have no more than 5 significant figures
     precision = 5 - int(math.floor(math.log10(abs(px)))) - 1
     rounded = round(px, max(0, precision))
-    return float('{:g}'.format(float('{:.5g}'.format(rounded))))
+    return float('{:.8g}'.format(rounded))
 
 @app.route("/trade", methods=["POST"])
 def handle_request():

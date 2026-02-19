@@ -64,13 +64,11 @@ def clean_sz(sz, decimals):
     return math.floor(sz * factor) / factor if sz > 0 else math.ceil(sz * factor) / factor
 
 def clean_px(px, sz_decimals):
-    px = float(px)
-    if px == 0: return 0
-    # Hyperliquid rule: total significant figures (precision) is 5, 
-    # but it must also respect the asset's specific tick rules.
-    precision = 5 - int(math.floor(math.log10(abs(px)))) - 1
-    rounded_px = round(px, max(0, precision))
-    return float('{:g}'.format(float('{:.5g}'.format(rounded_px))))
+    # Hyperliquid rule: Price precision is typically 6 minus asset's sz_decimals.
+    # We round based on the asset's specific precision requirements.
+    px_decimals = max(0, 6 - sz_decimals)
+    factor = 10 ** px_decimals
+    return round(px * factor) / factor
 
 @app.route("/trade", methods=["POST"])
 def handle_request():
@@ -99,7 +97,6 @@ def handle_request():
             meta = info.meta()
             all_mids = info.all_mids()
             
-            # Create a map for easy meta lookups
             coin_meta_map = {c["name"]: c for c in meta["universe"]}
             
             active_positions = {}

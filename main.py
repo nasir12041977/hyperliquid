@@ -124,7 +124,7 @@ def handle_request():
                 
                 diff_sz = clean_sz(target_sz - current_sz, sz_decimals)
 
-                if abs(diff_sz * price) >= 1.0: 
+                if abs(diff_sz * price) > 10.0: 
                     try: exchange.update_leverage(int(coin_data["maxLeverage"]), coin_name, is_cross=True)
                     except: pass
                     

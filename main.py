@@ -63,11 +63,13 @@ def clean_sz(sz, decimals):
     factor = 10 ** decimals
     return math.floor(sz * factor) / factor if sz > 0 else math.ceil(sz * factor) / factor
 
-def clean_px(px):
+def clean_px(px, sz_decimals):
     px = float(px)
     if px == 0: return 0
+    # Hyperliquid rule: total significant figures (precision) is 5, 
+    # but it must also respect the asset's specific tick rules.
     precision = 5 - int(math.floor(math.log10(abs(px)))) - 1
-    rounded_px = round(px, precision)
+    rounded_px = round(px, max(0, precision))
     return float('{:g}'.format(float('{:.5g}'.format(rounded_px))))
 
 @app.route("/trade", methods=["POST"])
@@ -96,6 +98,9 @@ def handle_request():
             user_state = info.user_state(HL_ADDRESS)
             meta = info.meta()
             all_mids = info.all_mids()
+            
+            # Create a map for easy meta lookups
+            coin_meta_map = {c["name"]: c for c in meta["universe"]}
             
             active_positions = {}
             for p in user_state.get("assetPositions", []):
@@ -129,7 +134,7 @@ def handle_request():
                     try: exchange.update_leverage(int(coin_data["maxLeverage"]), coin_name, is_cross=True)
                     except: pass
                     
-                    limit_px = clean_px(price * (1.1 if diff_sz > 0 else 0.9))
+                    limit_px = clean_px(price * (1.1 if diff_sz > 0 else 0.9), sz_decimals)
                     
                     bulk_params.append({
                         "coin": coin_name,
@@ -142,8 +147,12 @@ def handle_request():
 
             for coin, szi in active_positions.items():
                 if coin not in processed_coins:
+                    coin_info = coin_meta_map.get(coin)
+                    if not coin_info: continue
+                    
                     price = float(all_mids[coin])
-                    limit_px = clean_px(price * (1.1 if szi < 0 else 0.9))
+                    sz_dec = int(coin_info.get("szDecimals", coin_info.get("sz_decimals", 0)))
+                    limit_px = clean_px(price * (1.1 if szi < 0 else 0.9), sz_dec)
                     
                     bulk_params.append({
                         "coin": coin,

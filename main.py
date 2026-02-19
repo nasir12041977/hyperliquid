@@ -159,17 +159,20 @@ def handle_request():
                     })
                     results.append(f"{coin}: CLOSING")
 
-            if bulk_params:
+             if bulk_params:
                 res = exchange.bulk_orders(bulk_params)
                 if res and res.get("status") == "ok":
-                    return jsonify({"msg": "BULK_SUCCESS\n" + "\n".join(results)})
+                    # एक्सचेंज से आए असली स्टेटस की लिस्ट
+                    statuses = res.get("response", {}).get("data", {}).get("statuses", [])
+                    final_output = []
+                    for i, status in enumerate(statuses):
+                        coin_name = bulk_params[i]["coin"]
+                        # सीधा कॉइन का नाम और एक्सचेंज का रिस्पॉन्स
+                        final_output.append(f"{coin_name}: {json.dumps(status)}")
+                    
+                    return jsonify({"msg": "\n".join(final_output)})
                 else:
-                    return jsonify({"msg": f"BULK_ERROR: {str(res)}"})
-
-            return jsonify({"msg": "\n".join(results) if results else "No Action"})
-
-    except Exception as e:
-        return jsonify({"msg": f"System Error: {str(e)}"})
-
+                    return jsonify({"msg": f"ERROR: {str(res)}"})
+                    
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

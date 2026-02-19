@@ -106,7 +106,6 @@ def handle_request():
                     active_positions[coin] = float(szi)
 
             bulk_params = []
-            results = []
             processed_coins = set()
 
             for t in incoming_trades:
@@ -140,9 +139,6 @@ def handle_request():
                         "order_type": {"limit": {"tif": "Ioc"}},
                         "reduce_only": False
                     })
-                    results.append(f"{coin_name}: QUEUED")
-                else:
-                    results.append(f"{coin_name}: RUNNING")
 
             for coin, szi in active_positions.items():
                 if coin not in processed_coins:
@@ -157,22 +153,23 @@ def handle_request():
                         "order_type": {"limit": {"tif": "Ioc"}},
                         "reduce_only": True
                     })
-                    results.append(f"{coin}: CLOSING")
 
-             if bulk_params:
+            if bulk_params:
                 res = exchange.bulk_orders(bulk_params)
                 if res and res.get("status") == "ok":
-                    # एक्सचेंज से आए असली स्टेटस की लिस्ट
                     statuses = res.get("response", {}).get("data", {}).get("statuses", [])
                     final_output = []
                     for i, status in enumerate(statuses):
                         coin_name = bulk_params[i]["coin"]
-                        # सीधा कॉइन का नाम और एक्सचेंज का रिस्पॉन्स
                         final_output.append(f"{coin_name}: {json.dumps(status)}")
-                    
                     return jsonify({"msg": "\n".join(final_output)})
                 else:
                     return jsonify({"msg": f"ERROR: {str(res)}"})
-                    
+
+            return jsonify({"msg": "No Action"})
+
+    except Exception as e:
+        return jsonify({"msg": f"System Error: {str(e)}"})
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)

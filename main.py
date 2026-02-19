@@ -1,5 +1,5 @@
 '''
-COD STATUS / EDITNUMBER : ON WORKING
+COD STATUS / EDITNUMBER : 7
 COD UPLOAD : GITHUB (NASIR12041977 / HYPERLIQUID)
 ---------------------------------------------------------
 होस्टिंग प्लेटफॉर्म : RENDER
@@ -38,7 +38,6 @@ AI के लिए चेतावनी (WARNING FOR AI - GEMINI, CHATGPT, DEE
 ---------------------------------------------------------
 '''
 
-
 import os
 import json
 import math
@@ -63,12 +62,12 @@ def clean_sz(sz, decimals):
     factor = 10 ** decimals
     return math.floor(sz * factor) / factor if sz > 0 else math.ceil(sz * factor) / factor
 
-def clean_px(px, sz_decimals):
-    # Hyperliquid rule: Price precision is typically 6 minus asset's sz_decimals.
-    # We round based on the asset's specific precision requirements.
-    px_decimals = max(0, 6 - sz_decimals)
-    factor = 10 ** px_decimals
-    return round(px * factor) / factor
+def clean_px(px):
+    if not px or px == 0: return 0
+    px = float(px)
+    precision = 5 - int(math.floor(math.log10(abs(px)))) - 1
+    rounded = round(px, max(0, precision))
+    return float('{:g}'.format(float('{:.5g}'.format(rounded))))
 
 @app.route("/trade", methods=["POST"])
 def handle_request():
@@ -76,7 +75,6 @@ def handle_request():
         data = request.json
         action = data.get("action")
 
-        # --- 1. BALANCE MODE (Fixed Syntax - Back to Original) ---
         if action == "BALANCE":
             user_state = info.user_state(HL_ADDRESS)
             spot_state = info.spot_user_state(HL_ADDRESS)
@@ -90,7 +88,6 @@ def handle_request():
             }
             return jsonify({"msg": json.dumps(full_report)})
 
-        # --- 2. TRADE MODE (The Bulk Engine) ---
         elif action == "TRADE":
             incoming_trades = data.get("trades", [])
             user_state = info.user_state(HL_ADDRESS)
@@ -121,17 +118,17 @@ def handle_request():
                 
                 processed_coins.add(coin_name)
                 current_sz = active_positions.get(coin_name, 0.0)
-
+                
                 target_sz = clean_sz(target_usd / price, sz_decimals)
                 if not is_buy: target_sz = -target_sz
                 
                 diff_sz = clean_sz(target_sz - current_sz, sz_decimals)
 
-                if abs(diff_sz * price) >= 10.0:
+                if abs(diff_sz * price) >= 1.0: 
                     try: exchange.update_leverage(int(coin_data["maxLeverage"]), coin_name, is_cross=True)
                     except: pass
                     
-                    limit_px = clean_px(price * (1.1 if diff_sz > 0 else 0.9), sz_decimals)
+                    limit_px = clean_px(price * (1.1 if diff_sz > 0 else 0.9))
                     
                     bulk_params.append({
                         "coin": coin_name,
@@ -144,13 +141,8 @@ def handle_request():
 
             for coin, szi in active_positions.items():
                 if coin not in processed_coins:
-                    coin_info = coin_meta_map.get(coin)
-                    if not coin_info: continue
-                    
                     price = float(all_mids[coin])
-                    sz_dec = int(coin_info.get("szDecimals", coin_info.get("sz_decimals", 0)))
-                    limit_px = clean_px(price * (1.1 if szi < 0 else 0.9), sz_dec)
-                    
+                    limit_px = clean_px(price * (1.1 if szi < 0 else 0.9))
                     bulk_params.append({
                         "coin": coin,
                         "is_buy": szi < 0,

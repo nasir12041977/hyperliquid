@@ -6,7 +6,7 @@ from eth_account import Account
 
 app = Flask(__name__)
 
-# चाबियों को सुरक्षित तरीके से लोड करने का फंक्शन
+# एक्सचेंज सेटअप करने का फंक्शन
 def get_exchange():
     address = os.getenv("HL_ADDRESS")
     secret_key = os.getenv("HL_SECRET_KEY")
@@ -17,43 +17,48 @@ def get_exchange():
 
 @app.route('/trade', methods=['POST'])
 def trade():
-    data = request.json
-    if not data:
-        return jsonify({"error": "No data"}), 400
+    try:
+        data = request.json
+        if not data:
+            return "No Data Received", 400
 
-    # 1. PING - सिर्फ सर्वर को जगाए रखने के लिए
-    if data.get("type") == "ping":
-        return jsonify({"status": "active", "msg": "Boss is awake"}), 200
+        # 1. PING HANDLER
+        if data.get("type") == "ping":
+            return "pong", 200
 
-    # 2. ORDER - असली ट्रेडिंग लॉजिक
-    if data.get("type") == "order":
-        exchange = get_exchange()
-        if not exchange:
-            return jsonify({"error": "Keys not configured on Render"}), 500
-        
-        orders = data.get("orders", [])
-        hl_orders = []
+        # 2. ORDER HANDLER
+        if data.get("type") == "order":
+            exchange = get_exchange()
+            if not exchange:
+                return jsonify({"error": "Environment Variables not set"}), 500
+            
+            orders = data.get("orders", [])
+            hl_orders = []
 
-        for o in orders:
-            hl_orders.append({
-                "coin": str(o["asset"]),
-                "is_buy": bool(o["isBuy"]),
-                "sz": float(o["sz"]),
-                "px": float(o["limitPx"]),
-                "order_type": {"limit": {"tif": "Gtc"}},
-                "reduce_only": bool(o["reduceOnly"])
-            })
+            # Apps Script के डेटा को Hyperliquid के फॉर्मेट में बदलना
+            for o in orders:
+                hl_orders.append({
+                    "coin": str(o["asset"]),
+                    "is_buy": bool(o["isBuy"]),
+                    "sz": float(o["sz"]),
+                    "px": float(o["limitPx"]),
+                    "order_type": {"limit": {"tif": "Gtc"}},
+                    "reduce_only": bool(o["reduceOnly"])
+                })
 
-        try:
-            # बल्क में आर्डर मारना (Fastest)
-            response = exchange.bulk_orders(hl_orders)
-            return jsonify(response), 200
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
+            if hl_orders:
+                # बल्क आर्डर मारना
+                response = exchange.bulk_orders(hl_orders)
+                # यह पूरा रिस्पॉन्स वापस भेजेगा जिसमें statuses[] मौजूद होंगे
+                return jsonify(response), 200
+            else:
+                return jsonify({"error": "Empty orders list"}), 400
 
-    return jsonify({"error": "Invalid Type"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    return jsonify({"error": "Invalid request type"}), 400
 
 if __name__ == "__main__":
-    # Render के लिए पोर्ट सेटअप
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)

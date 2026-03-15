@@ -6,39 +6,54 @@ from eth_account import Account
 
 app = Flask(__name__)
 
-# वॉलेट और एक्सचेंज सेटअप (Render की Env Variables से)
-address = os.getenv("HL_ADDRESS")
-secret_key = os.getenv("HL_SECRET_KEY")
-account = Account.from_key(secret_key)
-exchange = Exchange(account, constants.MAINNET_API_URL)
+# चाबियों को सुरक्षित तरीके से लोड करने का फंक्शन
+def get_exchange():
+    address = os.getenv("HL_ADDRESS")
+    secret_key = os.getenv("HL_SECRET_KEY")
+    if not address or not secret_key:
+        return None
+    account = Account.from_key(secret_key)
+    return Exchange(account, constants.MAINNET_API_URL)
 
 @app.route('/trade', methods=['POST'])
 def trade():
     data = request.json
-    
-    # 1. Ping Handling (सिर्फ जगाए रखने के लिए)
-    if data.get("type") == "ping":
-        return jsonify({"status": "active"}), 200
+    if not data:
+        return jsonify({"error": "No data"}), 400
 
-    # 2. Bulk Order Handling
+    # 1. PING - सिर्फ सर्वर को जगाए रखने के लिए
+    if data.get("type") == "ping":
+        return jsonify({"status": "active", "msg": "Boss is awake"}), 200
+
+    # 2. ORDER - असली ट्रेडिंग लॉजिक
     if data.get("type") == "order":
-        orders_to_send = []
-        for o in data.get("orders", []):
-            orders_to_send.append({
-                "coin": o["asset"],
-                "is_buy": o["isBuy"], # Apps Script से TRUE/FALSE आएगा
+        exchange = get_exchange()
+        if not exchange:
+            return jsonify({"error": "Keys not configured on Render"}), 500
+        
+        orders = data.get("orders", [])
+        hl_orders = []
+
+        for o in orders:
+            hl_orders.append({
+                "coin": str(o["asset"]),
+                "is_buy": bool(o["isBuy"]),
                 "sz": float(o["sz"]),
                 "px": float(o["limitPx"]),
-                "order_type": {"limit": {"tif": "Gtc"}}, # Default Gtc
-                "reduce_only": o["reduceOnly"]
+                "order_type": {"limit": {"tif": "Gtc"}},
+                "reduce_only": bool(o["reduceOnly"])
             })
 
-        if orders_to_send:
-            # एक साथ सारे ऑर्डर्स मारना (Bulk Execution)
-            response = exchange.bulk_orders(orders_to_send)
+        try:
+            # बल्क में आर्डर मारना (Fastest)
+            response = exchange.bulk_orders(hl_orders)
             return jsonify(response), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
-    return jsonify({"status": "no_data"}), 400
+    return jsonify({"error": "Invalid Type"}), 400
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
+    # Render के लिए पोर्ट सेटअप
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)

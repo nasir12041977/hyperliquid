@@ -1,5 +1,4 @@
 import os
-import json
 from flask import Flask, request, jsonify
 from hyperliquid.utils import constants
 from hyperliquid.exchange import Exchange
@@ -21,13 +20,13 @@ def trade():
     try:
         data = request.json
         if not data:
-            return "No Data Received", 400
+            return jsonify({"error": "No Data Received"}), 400
 
-        # Apps Script से आने वाला 'ping'
+        # PING चेक
         if data.get("type") == "ping":
-            return "pong", 200
+            return jsonify({"msg": "pong"}), 200
 
-        # Apps Script से आने वाला 'order'
+        # ORDER चेक
         if data.get("type") == "order":
             exchange = get_exchange()
             if not exchange:
@@ -44,26 +43,25 @@ def trade():
                 asset_index = int(o["asset"])
                 if asset_index < len(universe):
                     coin_name = universe[asset_index]['name']
-                    
-                    # यहाँ सुधार किया गया है: 'px' की जगह 'limit_px'
                     hl_orders.append({
                         "coin": coin_name,
                         "is_buy": bool(o["isBuy"]),
                         "sz": float(o["sz"]),
-                        "limit_px": float(o["limitPx"]), # सही कीवर्ड 'limit_px' है
+                        "limit_px": float(o["limitPx"]),
                         "order_type": {"limit": {"tif": "Gtc"}},
                         "reduce_only": bool(o["reduceOnly"])
                     })
 
             if hl_orders:
-                # बल्क ऑर्डर्स भेजना
                 response = exchange.bulk_orders(hl_orders)
                 return jsonify(response), 200
             else:
-                return jsonify({"error": "Invalid Asset Index"}), 400
+                return jsonify({"error": "No valid orders in list"}), 400
+
+        # अगर ऊपर का कुछ भी मैच न हो, तो यह जवाब देगा (ताकि 500 एरर न आए)
+        return jsonify({"msg": "Request received but no action taken", "data_received": data}), 200
 
     except Exception as e:
-        # अगर कोई चाभी (जैसे limitPx) नहीं मिली, तो यहाँ एरर दिखेगा
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":

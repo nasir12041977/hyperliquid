@@ -1,4 +1,5 @@
 import os
+import json
 from flask import Flask, request, jsonify
 from hyperliquid.utils import constants
 from hyperliquid.exchange import Exchange
@@ -22,15 +23,16 @@ def trade():
         if not data:
             return "No Data Received", 400
 
+        # Apps Script से आने वाला 'ping'
         if data.get("type") == "ping":
             return "pong", 200
 
+        # Apps Script से आने वाला 'order'
         if data.get("type") == "order":
             exchange = get_exchange()
             if not exchange:
                 return jsonify({"error": "Environment Variables not set"}), 500
             
-            # प्रैक्टिकल लॉजिक: इंडेक्स से नाम निकालने के लिए यूनिवर्स लोड करना
             info = Info(constants.MAINNET_API_URL, skip_ws=True)
             meta = info.meta()
             universe = meta['universe']
@@ -43,22 +45,25 @@ def trade():
                 if asset_index < len(universe):
                     coin_name = universe[asset_index]['name']
                     
+                    # यहाँ सुधार किया गया है: 'px' की जगह 'limit_px'
                     hl_orders.append({
                         "coin": coin_name,
                         "is_buy": bool(o["isBuy"]),
                         "sz": float(o["sz"]),
-                        "px": float(o["limitPx"]),
+                        "limit_px": float(o["limitPx"]), # सही कीवर्ड 'limit_px' है
                         "order_type": {"limit": {"tif": "Gtc"}},
                         "reduce_only": bool(o["reduceOnly"])
                     })
 
             if hl_orders:
+                # बल्क ऑर्डर्स भेजना
                 response = exchange.bulk_orders(hl_orders)
                 return jsonify(response), 200
             else:
                 return jsonify({"error": "Invalid Asset Index"}), 400
 
     except Exception as e:
+        # अगर कोई चाभी (जैसे limitPx) नहीं मिली, तो यहाँ एरर दिखेगा
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":

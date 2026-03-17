@@ -7,13 +7,27 @@ from eth_account import Account
 
 app = Flask(__name__)
 
+_exchange = None
+_info = None
+_universe = None
+
 def get_exchange():
-    address = os.getenv("HL_ADDRESS")
-    secret_key = os.getenv("HL_SECRET_KEY")
-    if not address or not secret_key:
-        return None
-    account = Account.from_key(secret_key)
-    return Exchange(account, constants.MAINNET_API_URL)
+    global _exchange
+    if _exchange is None:
+        address = os.getenv("HL_ADDRESS")
+        secret_key = os.getenv("HL_SECRET_KEY")
+        if not address or not secret_key:
+            return None
+        account = Account.from_key(secret_key)
+        _exchange = Exchange(account, constants.MAINNET_API_URL)
+    return _exchange
+
+def get_universe():
+    global _info, _universe
+    if _universe is None:
+        _info = Info(constants.MAINNET_API_URL, skip_ws=True)
+        _universe = _info.meta()['universe']
+    return _universe
 
 @app.route('/trade', methods=['POST'])
 def trade():
@@ -22,29 +36,23 @@ def trade():
         if not data:
             return jsonify({"error": "No Data Received"}), 400
 
-        # PING चेक
         if data.get("type") == "ping":
             return jsonify({"msg": "pong"}), 200
 
-        # ORDER चेक
         if data.get("type") == "order":
             exchange = get_exchange()
             if not exchange:
                 return jsonify({"error": "Environment Variables not set"}), 500
-            
-            info = Info(constants.MAINNET_API_URL, skip_ws=True)
-            meta = info.meta()
-            universe = meta['universe']
 
+            universe = get_universe()
             orders = data.get("orders", [])
             hl_orders = []
 
             for o in orders:
                 asset_index = int(o["asset"])
                 if asset_index < len(universe):
-                    coin_name = universe[asset_index]['name']
                     hl_orders.append({
-                        "coin": coin_name,
+                        "coin": universe[asset_index]['name'],
                         "is_buy": bool(o["isBuy"]),
                         "sz": float(o["sz"]),
                         "limit_px": float(o["limitPx"]),
@@ -56,10 +64,9 @@ def trade():
                 response = exchange.bulk_orders(hl_orders)
                 return jsonify(response), 200
             else:
-                return jsonify({"error": "No valid orders in list"}), 400
+                return jsonify({"error": "No valid orders"}), 400
 
-        # अगर ऊपर का कुछ भी मैच न हो, तो यह जवाब देगा (ताकि 500 एरर न आए)
-        return jsonify({"msg": "Request received but no action taken", "data_received": data}), 200
+        return jsonify({"msg": "No action taken"}), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500

@@ -22,17 +22,15 @@ def trade():
         if not data:
             return "No Data Received", 400
 
-        # 1. PING HANDLER
         if data.get("type") == "ping":
             return "pong", 200
 
-        # 2. ORDER HANDLER
         if data.get("type") == "order":
             exchange = get_exchange()
             if not exchange:
                 return jsonify({"error": "Environment Variables not set"}), 500
             
-            # प्रैक्टिकल तरीका: मेटा डेटा से यूनिवर्स की लिस्ट लोड करना
+            # प्रैक्टिकल लॉजिक: इंडेक्स से नाम निकालने के लिए यूनिवर्स लोड करना
             info = Info(constants.MAINNET_API_URL, skip_ws=True)
             meta = info.meta()
             universe = meta['universe']
@@ -41,7 +39,6 @@ def trade():
             hl_orders = []
 
             for o in orders:
-                # इंडेक्स से कॉइन का नाम ढूँढना (जैसे 214 -> "BTC")
                 asset_index = int(o["asset"])
                 if asset_index < len(universe):
                     coin_name = universe[asset_index]['name']
@@ -56,16 +53,13 @@ def trade():
                     })
 
             if hl_orders:
-                # यहाँ एक बार में सारे आर्डर मारना
                 response = exchange.bulk_orders(hl_orders)
                 return jsonify(response), 200
             else:
-                return jsonify({"error": "Empty or Invalid Index"}), 400
+                return jsonify({"error": "Invalid Asset Index"}), 400
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-    return jsonify({"error": "Invalid request type"}), 400
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
